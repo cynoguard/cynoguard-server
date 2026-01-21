@@ -14,12 +14,12 @@ services:
     #    tmpfs:
     #      size: 134217728 # 128*2^20 bytes = 128Mb
     environment:
-      POSTGRES_USER: cynoguard_tech_admin
-      POSTGRES_DB : cynoguard
-      POSTGRES_PASSWORD: cynoguard@#$2026-121
+      POSTGRES_USER: testuser
+      POSTGRES_DB : fastify_prisma_starter
+      POSTGRES_PASSWORD: testpassword
 
     ports:
-      - "5444:5432"  
+      - "5440:5432"  
     volumes:
       - pgdata:/var/lib/postgresql 
 
@@ -27,7 +27,7 @@ services:
     image: adminer
     restart: always
     ports:
-      - 9001:8080
+      - 8877:8080
 
 volumes:
   pgdata:
