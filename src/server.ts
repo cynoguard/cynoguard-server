@@ -1,8 +1,11 @@
 
+import fastifySwagger from '@fastify/swagger';
+import fastifySwaggerUi from '@fastify/swagger-ui';
 import 'dotenv/config';
 import Fastify, { type FastifyInstance } from "fastify";
+import app from './app.js';
 import { prisma } from "./plugins/prisma.js";
-
+import { swaggerOption, swaggerUiOptions } from './plugins/swagger.js';
 declare module "fastify" {
   interface FastifyInstance {
     prisma: typeof prisma;
@@ -15,20 +18,9 @@ const fastify:FastifyInstance = Fastify({
 
 fastify.decorate("prisma", prisma);
 
-
-fastify.get("/",async (request,response) => {
-    return {status:"Ok"}
-});
-
-// DB health check
-fastify.get('/api/health/db', async (request, reply) => {
-  try {
-    const result:any = await fastify.prisma.$queryRaw`SELECT NOW()`
-    return { status: 'ok', dbTime: result[0].now }
-  } catch (err) {
-    reply.status(500).send({ status: 'error', error: err })
-  }
-})
+fastify.register(fastifySwagger,swaggerOption);
+fastify.register(fastifySwaggerUi,swaggerUiOptions);
+fastify.register(app);
 
 const start = async()=>{
     try {
