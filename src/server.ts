@@ -1,4 +1,5 @@
 
+import cors from '@fastify/cors';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import 'dotenv/config';
@@ -6,6 +7,8 @@ import Fastify, { type FastifyInstance } from "fastify";
 import app from './app.js';
 import { prisma } from "./plugins/prisma.js";
 import { swaggerOption, swaggerUiOptions } from './plugins/swagger.js';
+import authRoutes from './routes/auth/index.js';
+
 declare module "fastify" {
   interface FastifyInstance {
     prisma: typeof prisma;
@@ -16,11 +19,20 @@ const fastify:FastifyInstance = Fastify({
  logger:true
 });
 
+const allowedOrigins = ['http://localhost:3000'];
+
+await fastify.register(cors, {
+  origin: allowedOrigins, // Restricts access to specified origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify allowed methods
+  credentials: true, // If you need to handle cookies or authorization headers
+});
+
 fastify.decorate("prisma", prisma);
 
 fastify.register(fastifySwagger,swaggerOption);
 fastify.register(fastifySwaggerUi,swaggerUiOptions);
 fastify.register(app);
+fastify.register(authRoutes);
 
 const start = async()=>{
     try {

@@ -2,15 +2,14 @@ import { Type } from "@sinclair/typebox";
 import type { FastifyInstance, FastifyPluginOptions } from "fastify";
 
 // basic type for initial route path /
-const HealthResponseSchema  = Type.Object({
+const healthResponseSchema  = Type.Object({
     status:Type.String({examples:["Ok"]}),
 });
 
 
-
 const app = async (fastify:FastifyInstance,options:FastifyPluginOptions) => {
 
-fastify.get("/",{schema:{tags:["System"],description:"API health check",response:{200:HealthResponseSchema }}},async (request,response) => {
+fastify.get("/",{schema:{tags:["System"],description:"API health check",response:{200:healthResponseSchema }}},async (request,response) => {
     return {status:"Ok"}
 });
 
