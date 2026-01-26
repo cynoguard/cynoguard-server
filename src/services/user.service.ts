@@ -1,6 +1,5 @@
 import { prisma } from "../plugins/prisma.js";
 
-
 export const createDbUser = async (firebaseId: string, email: string,firstName:string|"",lastName:string|"",role:string) => {
   return await prisma.user.create({
     data:{
