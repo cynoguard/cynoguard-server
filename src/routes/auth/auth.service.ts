@@ -1,7 +1,8 @@
 import { auth } from "firebase-admin";
 import { createFirebaseAccount } from "../../services/firebase.service.js";
-import { createDbUser } from "../../services/user.service.js";
+import { createDbUser, getUserByEmail } from "../../services/user.service.js";
 import type { RegisterBodyType } from "./auth.schema.js";
+import { loginUserWorkflow } from "./auth.service.js";
 
 
 export const registerUserWorkflow = async (data: RegisterBodyType) => {
@@ -17,4 +18,31 @@ export const registerUserWorkflow = async (data: RegisterBodyType) => {
     await auth().deleteUser(firebaseUser.uid);
     throw new Error("Failed to sync user to CynoGuard database.");
   }
+};
+
+// Login function using OAuth
+export const socialLoginWorkFlow = async (idToken: string ) => {
+  // verify the token sent by frontend
+  const decodedToken = await auth().verifyIdToken(idToken);
+  const { email, uid } = decodedToken;
+
+  // check if user exists in the database
+  let user = await getUserByEmail(email!);
+
+  // if user does not exist, create a new user in the database
+  if (!user) {
+    user = await createDbUser(
+      uid,
+      email!,
+      decodedToken.name || "Social User",
+      "",
+      "MEMEBER" // default role
+    );
+  }
+  
+  return {
+    uid: uid,
+    email: user.email,
+    role: user.role,
+  };
 };
