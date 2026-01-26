@@ -1,5 +1,6 @@
 import { prisma } from "../plugins/prisma.js";
 
+
 export const createDbUser = async (firebaseId: string, email: string,firstName:string|"",lastName:string|"",role:string) => {
   return await prisma.user.create({
     data:{
@@ -10,4 +11,14 @@ export const createDbUser = async (firebaseId: string, email: string,firstName:s
         role:"SUPER_ADMIN" // account create user will be super admin unless change it mannually 
     }
   })
+};
+
+
+// Add 'export' so other files can use it
+export const getUserByEmail = async (email: string) => {
+  return await prisma.user.findUnique({
+    where: {
+      email: email,
+    },
+  });
 };
