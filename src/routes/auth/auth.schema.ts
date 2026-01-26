@@ -34,5 +34,29 @@ export const registerSchema = {
   }
 }
 
+// Login Body
+export const LoginBodySchema = Type.Object({
+  email: Type.String({ format: "email" }),
+  password:Type.String(),   
+});
 
+export type LoginBodyType = Static<typeof LoginBodySchema>;
 
+// Full Login Schema for Swagger
+export const loginSchema = {
+  summary: 'Login a member',
+  description: 'Logs in a user and returns a JWT token',
+  tags: ['Authentication'],
+  body:LoginBodySchema,
+  response:{
+    200:Type.Object({
+      uid: Type.String(),
+      email: Type.String(),
+      role: Type.String(),
+      message: Type.String(),
+    }),
+    401:Type.Object({
+        error:Type.String(),
+    }),
+  }
+};  
