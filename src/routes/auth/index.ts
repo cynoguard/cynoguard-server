@@ -7,7 +7,7 @@ const authRoutes = async (fastify:FastifyInstance,option:FastifyPluginOptions) =
     
  // Register user with email and password 
  fastify.post<{Body: RegisterBodyType}>("/api/auth/register",{schema:registerSchema},async (request,reply) => {
-    const { email, password, firstName="", lastName="", role }:RegisterBodyType = request.body;
+    const { email, password, firstName="", lastName="", role } = request.body;
     try {
         // Logic to register user
         const user = await createFirebaseAccount(email,password);
