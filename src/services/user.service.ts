@@ -11,3 +11,13 @@ export const createDbUser = async (firebaseId: string, email: string,firstName:s
     }
   })
 };
+
+
+// Add 'export' so other files can use it
+export const getUserByEmail = async (email: string) => {
+  return await prisma.user.findUnique({
+    where: {
+      email: email,
+    },
+  });
+};
