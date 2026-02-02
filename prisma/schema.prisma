@@ -20,12 +20,13 @@ enum UserRole {
 }
 
 model User {
-  id         String   @id @default(cuid())
-  firebaseId String   @unique @map("firebase_id")
-  email      String   @unique
-  firstName  String?  @map("first_name")
-  lastName   String?  @map("last_name")
-  role       UserRole @default(MEMBER)
+  id          String   @id @default(cuid())
+  firebaseId  String   @unique @map("firebase_id")
+  email       String   @unique
+  firstName   String?  @map("first_name")
+  lastName    String?  @map("last_name")
+  role        UserRole @default(MEMBER)
+  isOnboarded Boolean  @default(false) @map("is_onboarded")
 
   // CynoGuard Specifics
   isActive  Boolean   @default(true) @map("is_active")
