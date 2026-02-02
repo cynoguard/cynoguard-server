@@ -19,7 +19,7 @@ const fastify:FastifyInstance = Fastify({
  logger:true
 });
 
-const allowedOrigins = ['http://localhost:3000'];
+const allowedOrigins = ['http://localhost:3000','http://localhost:3001','http://localhost:3002','http://localhost:3003'];
 
 await fastify.register(cors, {
   origin: allowedOrigins, // Restricts access to specified origins
