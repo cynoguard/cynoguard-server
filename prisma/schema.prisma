@@ -37,3 +37,11 @@ model User {
 
   @@map("users") // The table in AWS RDS will still be called "users"
 }
+
+model Organization {
+  id String @unique @default(uuid())
+}
+
+model Project {
+  id String @unique @default(uuid())
+}
