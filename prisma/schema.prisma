@@ -28,6 +28,8 @@ model User {
   role        UserRole @default(MEMBER)
   isOnboarded Boolean  @default(false) @map("is_onboarded")
 
+  membership   OrganizationMember?
+
   // CynoGuard Specifics
   isActive  Boolean   @default(true) @map("is_active")
   lastLogin DateTime? @map("last_login")
@@ -36,4 +38,29 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("users") // The table in AWS RDS will still be called "users"
+}
+
+model Organization {
+  id         String    @id @default(uuid())
+  name       String
+  industry   String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  // Relation: An organization can have many memebers
+  members  OrganizationMembers[]
+
+  @@map("organization")
+}
+
+model OrganizationMembers {
+  id              String   @id @default(uuid())
+  organizationId  String   @map("organization_id")
+  userId          String   @unique @map("user_id")
+  role            String   @default("OWNER")
+
+  // Relation 
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("organization_members")
 }
