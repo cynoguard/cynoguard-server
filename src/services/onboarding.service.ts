@@ -5,27 +5,6 @@ import { prisma } from "../plugins/prisma.js";
 export const createOrganization = async (userId: string, name: string, industry: string) => {
     return await prisma.$transaction(async (tx: any) => {
 
-        // 1. Create Organization
-        const org = await tx.organization.create({
-            data: { name, industry}
-        });
-
-        // 2. Create the Memeber link
-        await tx.organizationMember.create({
-            data: {
-                organizationId: org.id,
-                userId: userId,
-                role: "OWNER"
-            }
-        });
-        
-        // 3. Update the users's onboarding status
-        await tx.user.update({
-            where: { id: userId },
-            data: { isOnboarded: true }
-        });
-
-        return org;
     });
 };
 

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { onboardingPostSchema, type OnboardingBodyType } from "./onboading.schema.js";
+import type { OnboardingBodyType } from "../../types/onboading.js";
+import { onboardingPostSchema} from "./onboading.schema.js";
 import { createOrganization, getOnboardingStatus } from "../../services/onboarding.service.js";
 
 export default async function (fastify: FastifyInstance) {
