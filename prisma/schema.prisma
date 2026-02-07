@@ -37,3 +37,29 @@ model User {
 
   @@map("users") // The table in AWS RDS will still be called "users"
 }
+
+model Organization {
+  id         String @unique @default(uuid())
+  name       String 
+  industry   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  memebers   OrganizationMember[]
+ 
+  @@map("organizations")
+
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  userId         String       @unique @map("user_id") 
+  role           String       @default("OWNER")
+  
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("organization_members")
+}
