@@ -5,7 +5,9 @@ export const onboardingService = {
   async saveCompanyDetails(userId: string, name: string, industry?: string) {
     return await prisma.$transaction(async (tx) => {
       const org = await tx.organization.create({
-        data: { name, industry }
+        data: { 
+          name,
+          industry: industry ?? null}
       });
 
       await tx.organizationMember.create({
