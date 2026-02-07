@@ -28,6 +28,8 @@ model User {
   role        UserRole @default(MEMBER)
   isOnboarded Boolean  @default(false) @map("is_onboarded")
 
+  // membership OrganizationMember?
+
   // CynoGuard Specifics
   isActive  Boolean   @default(true) @map("is_active")
   lastLogin DateTime? @map("last_login")
