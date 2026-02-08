@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import { verifyHumanBodySchema } from "../../../types/bot-detection.js";
+import { verifyHumanBodySchema, verifyHumanResponseSchema } from "../../../types/bot-detection.js";
 
 
 export const verifyHumanSchema = {
@@ -8,23 +8,7 @@ export const verifyHumanSchema = {
     tag:["Bot Detection"],
     body:verifyHumanBodySchema,
     response:{
-        200:Type.Object({
-            status:Type.String(),
-            message:Type.String(),
-            data:Type.Object({
-               assessment: Type.Object({
-                  score: Type.Number(),
-                  risk_level: Type.String(),
-                  action: Type.String(),
-                  reasons: Type.Optional(Type.String()), 
-               }),
-                context:Type.Object({
-                    ip: Type.String(),
-                    ua_fingerprint: Type.String(),
-                    timestamp:Type.String(),
-                }),
-            }),
-        }),
+        200:verifyHumanResponseSchema,
         500:Type.Object({
             status:Type.String(),
             message:Type.Optional(Type.String()),

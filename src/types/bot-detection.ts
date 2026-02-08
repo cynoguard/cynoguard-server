@@ -27,3 +27,31 @@ export const verifyHumanBodySchema = Type.Object({
 });
 
 export type verifyHumanBodyType = Static<typeof verifyHumanBodySchema>
+
+
+export const verifyHumanResponseSchema = Type.Object({
+            status:Type.String(),
+            message:Type.String(),
+            request_id:Type.String(),
+            version:Type.String(),
+            data:Type.Object({
+               assessment: Type.Object({
+                  score: Type.Number(),
+                  risk_level: Type.String(),
+                  action: Type.String(),
+                  reasons: Type.Optional(Type.String()), 
+               }),
+                context:Type.Object({
+                    ip: Type.String(),
+                    ua_fingerprint: Type.String(),
+                    timestamp:Type.String(),
+                }),
+                challenge:Type.Optional(Type.Object({
+                    condition:Type.String(),
+                    token:Type.String(),
+                    context:Type.String(),
+                }))
+            }),
+        });
+
+export type verifyHumanResponseType = Static<typeof verifyHumanResponseSchema>

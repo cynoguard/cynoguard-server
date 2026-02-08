@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { type verifyHumanBodyType } from './../../../types/bot-detection.js';
+import { type verifyHumanBodyType, type verifyHumanResponseType } from './../../../types/bot-detection.js';
 
 
 export const verifyHuman = async(request:FastifyRequest,reply:FastifyReply)=>{
@@ -19,6 +19,28 @@ export const verifyHuman = async(request:FastifyRequest,reply:FastifyReply)=>{
         score -= 20;
     } // Most humans have > 2 cores
     
+    
+        const response:verifyHumanResponseType = {
+        status:"success",
+        message:"verification completed",
+        request_id:"",
+        version:"v1.0",
+        data:{
+            assessment: {
+            score: score,
+            risk_level: score < 30 ? "high" : score < 71 ? "medium" : "low",
+            action:"",
+            // reasons: "not available" 
+           },
+        context: {
+            ip: request.ip,
+            ua_fingerprint: signals.ua,
+            timestamp: new Date().toISOString()
+        }
+        }
+    }
+
+
     // TIER 2: ML (Placeholder for your Python/EC2 logic)
     // If score is 31-70, we'd normally call the Python ML model here
     let actionStatus = "allow";
@@ -29,26 +51,14 @@ export const verifyHuman = async(request:FastifyRequest,reply:FastifyReply)=>{
     else if (score < 71){
         actionStatus = "uncertain";
     }
+     
+    response.data.assessment.action = actionStatus;
+ 
+  
 
-    return reply.code(200).send({
-        status:"success",
-        message:"verification completed",
-        request_id:"",
-        version:"v1.0",
-        data:{
-            assessment: {
-            score: score,
-            risk_level: score < 30 ? "high" : score < 71 ? "medium" : "low",
-            action: actionStatus,
-            // reasons: "not available" 
-           },
-        context: {
-            ip: request.ip,
-            ua_fingerprint: signals.ua,
-            timestamp: new Date().toISOString()
-        }
-        }
-    });
+
+
+    return reply.code(200).send(response);
    } catch (error) {
      return reply.code(500).send({status:"Internal Server Error",message:"",error:error})
    }
