@@ -37,6 +37,8 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  organizations OrganizationMember[]
+
   @@map("users") // The table in AWS RDS will still be called "users"
 }
 
@@ -50,7 +52,7 @@ model Organization {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   // Relations
-  memebers OrganizationMember[]
+  members  OrganizationMember[]
   projects Project[]
 
   @@map("organizations")
@@ -65,6 +67,8 @@ model Project {
   organization   Organization @relation(fields: [organizationId], references: [id])
   apiKeys        ApiKey[]
   detections     Detection[]
+  mentions       Mention[]
+  keywords       Keyword[]
 
   @@map("projects")
 }
@@ -109,6 +113,44 @@ model OrganizationMember {
 
   // Relations
   organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
 
+  @@unique([organizationId, userId])
   @@map("organization_members")
+}
+
+enum Platform {
+  REDDIT
+  X
+}
+
+model Mention {
+  id         String   @id @default(uuid())
+  projectId  String   @map("project_id")
+  externalId String   @map("external_id") // Reddit post ID / Tweet ID
+  platform   Platform
+  author     String?
+  content    String
+  sentiment  String? // POSITIVE / NEGATIVE / NEUTRAL
+  keyword    String
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@unique([platform, externalId])
+  @@map("mentions")
+}
+
+model Keyword {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  value     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@unique([projectId, value])
+  @@map("keywords")
 }

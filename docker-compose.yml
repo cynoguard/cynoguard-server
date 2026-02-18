@@ -5,30 +5,30 @@ services:
   db:
     image: postgres
     restart: always
-    # set shared memory limit when using docker compose
     shm_size: 128mb
-    # or set shared memory limit when deploy via swarm stack
-    #volumes:
-    #  - type: tmpfs
-    #    target: /dev/shm
-    #    tmpfs:
-    #      size: 134217728 # 128*2^20 bytes = 128Mb
     environment:
       POSTGRES_USER: cynoguard_tech_admin
       POSTGRES_DB: cynoguard
       POSTGRES_PASSWORD: cynoguard2026121
-
     ports:
-      - "5448:5432"   # left our port right image port
+      - "5448:5432"
     volumes:
-      - pgdata:/var/lib/postgresql 
+      - pgdata:/var/lib/postgresql
 
   adminer:
     image: adminer
     restart: always
     ports:
-      - 9977:8080
+      - "9977:8080"
+
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data  
 
 volumes:
   pgdata:
-
+  redisdata:

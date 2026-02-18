@@ -2,6 +2,7 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
+    "allowSyntheticDefaultImports": true,
 
     /* Environment Settings */
     "module": "nodenext",
