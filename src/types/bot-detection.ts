@@ -47,11 +47,23 @@ export const verifyHumanResponseSchema = Type.Object({
                     timestamp:Type.String(),
                 }),
                 challenge:Type.Optional(Type.Object({
-                    condition:Type.String(),
+                    condition:Type.Integer(),
                     token:Type.String(),
                     context:Type.String(),
-                }))
+                })),
+                cookies:Type.Optional(Type.Object({
+                  token: Type.Optional(Type.String()),
+                })),
             }),
         });
 
 export type verifyHumanResponseType = Static<typeof verifyHumanResponseSchema>
+
+
+
+export const verifyChallengeBodySchema = Type.Object({
+   answer:Type.String(),
+});
+
+
+export type verifyChallengeBodyType = Static<typeof verifyChallengeBodySchema>

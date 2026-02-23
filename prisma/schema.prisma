@@ -87,16 +87,19 @@ model ApiKey {
 }
 
 model Detection {
-  id        String   @id @default(uuid())
-  projectId String   @map("project_id")
-  ipAddress String   @map("ip_address")
-  score     Int
-  action    String
-  signals   Json
-  isHuman   Boolean  @map("is_human")
-  createdAt DateTime @map("created_at")
-  //relation
-  project   Project  @relation(fields: [projectId], references: [id])
+  id               String   @id @default(uuid())
+  projectId        String   @map("project_id")
+  challengeHistory String[] @map("challenge_history")
+  ipAddress        String   @map("ip_address")
+  score            Int
+  action           String
+  signals          Json
+  isHuman          Boolean  @map("is_human")
+  createdAt        DateTime @default(now()) @map("created_at")
+  timeToSolve      Int      @map("time_to_solve") // all time data store base as millisecond
+
+  //relations
+  project Project @relation(fields: [projectId], references: [id])
 
   @@map("detections")
 }
@@ -111,4 +114,18 @@ model OrganizationMember {
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@map("organization_members")
+}
+
+model ChallengeBank {
+  id              String  @id @default(uuid())
+  value           String  @unique
+  successCount    Int     @default(0) @map("success_count")
+  failCount       Int     @default(0) @map("fail_count")
+  isActive        Boolean @default(true) @map("is_active")
+  // 1: Easy (Short sentences)
+  // 2: Medium (Standard)
+  // 3: Hard (Complex logic/punctuation)
+  difficultyLevel Int     @default(0) @map("difficulty_level")
+
+  @@map("challenge_bank")
 }
