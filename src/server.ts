@@ -8,6 +8,8 @@ import app from './app.js';
 import { prisma } from "./plugins/prisma.js";
 import { swaggerOption, swaggerUiOptions } from './plugins/swagger.js';
 import authRoutes from './routes/auth/index.js';
+import botDetectionRoutes from './routes/v1/bot-detection/index.js';
+import test from './test/index.js';
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -33,6 +35,9 @@ fastify.register(fastifySwagger,swaggerOption);
 fastify.register(fastifySwaggerUi,swaggerUiOptions);
 fastify.register(app);
 fastify.register(authRoutes);
+fastify.register(botDetectionRoutes);
+//test file
+fastify.register(test);
 
 const start = async()=>{
     try {
