@@ -108,11 +108,6 @@ export const reTakeChallengeSchema = {
             status:Type.String(),
             message:Type.Optional(Type.String()),
             error:Type.String(),
-             data:Type.Object({
-                challenge:Type.Object({
-                    retake_token:Type.String(),
-                })
-            })
         }),
     }
 }

@@ -30,6 +30,9 @@ jobs:
       # Generate Prisma client
       - run: npx prisma generate
 
+      # Migrate Prisma
+      - run: npx prisma migrate deployed
+
       # Build TypeScript code
       - run: npm run build --if-present
 
