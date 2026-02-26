@@ -37,6 +37,8 @@ jobs:
       - run: |
           touch .env
           echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
+          # Map the PROD secret to the generic DATABASE_URL name Prisma expects
+          echo "DATABASE_URL=${{ secrets.DATABASE_PROD_URL }}" > .env
 
       # Migrate Prisma
       - run: npx prisma migrate deploy
