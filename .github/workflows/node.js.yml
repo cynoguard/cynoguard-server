@@ -35,6 +35,9 @@ jobs:
           touch .env
           echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
 
+      - name: Debug ENV
+        run: cat .env
+
       #  Prisma      
       - run: npx prisma generate
       - run: npx prisma migrate deploy
