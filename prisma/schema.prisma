@@ -69,6 +69,7 @@ model Project {
   detections     Detection[]
   mentions       Mention[]
   keywords       Keyword[]
+  alerts         Alert[]
 
   @@map("projects")
 }
@@ -120,7 +121,6 @@ model OrganizationMember {
 }
 
 enum Platform {
-  REDDIT
   X
 }
 
@@ -137,6 +137,7 @@ model Mention {
   createdAt  DateTime @default(now()) @map("created_at")
 
   project Project @relation(fields: [projectId], references: [id])
+  alerts  Alert[]
 
   @@unique([platform, externalId])
   @@map("mentions")
@@ -153,4 +154,20 @@ model Keyword {
 
   @@unique([projectId, value])
   @@map("keywords")
+}
+
+model Alert {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  mentionId String   @map("mention_id")
+  type      String
+  severity  String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+  mention Mention @relation(fields: [mentionId], references: [id])
+
+  @@map("alerts")
 }

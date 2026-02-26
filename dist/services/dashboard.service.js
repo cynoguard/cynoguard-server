@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import { prisma } from "../plugins/prisma.js";
 export const getDashboardData = async (projectId) => {
     // Total mentions
     const totalMentions = await prisma.mention.count({

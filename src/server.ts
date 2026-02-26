@@ -9,15 +9,16 @@ import { prisma } from "./plugins/prisma.js";
 import { swaggerOption, swaggerUiOptions } from './plugins/swagger.js';
 import authRoutes from './routes/auth/index.js';
 import botDetectionRoutes from './routes/v1/bot-detection/index.js';
-import "./lib/worker";
-import "./lib/scheduler";
-import "./lib/processing.worker"
-import "./lib/processing.scheduler"
+import "./lib/worker.js";
+import "./lib/scheduler.js";
+import "./lib/processing.worker.js"
+import "./lib/processing.scheduler.js"
 import brandRoutes from "./routes/social-media-monitoring/brand.routes.js";
 import mentionRoutes from "./routes/social-media-monitoring/mention.routes.js";
 import analyticsRoutes from "./routes/social-media-monitoring/analytics.routes.js";
 import keywordRoutes from "./routes/social-media-monitoring/keyword.routes.js";
 import dashboardRoutes from "./routes/social-media-monitoring/dashboard.routes.js";
+import alertRoutes from "./routes/social-media-monitoring/alert.routes.js"
 
 
 declare module "fastify" {
@@ -62,5 +63,6 @@ await fastify.register(analyticsRoutes);
 await fastify.register(keywordRoutes);
 await fastify.register(dashboardRoutes);
 
+await fastify.register(alertRoutes);
 
 start();

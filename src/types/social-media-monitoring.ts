@@ -1,6 +1,6 @@
 export interface NormalizedMention {
   externalId: string
-  platform: "REDDIT" | "X"
+  platform:  "X"
   author?: string
   content: string
   keyword: string

@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import { prisma } from "../plugins/prisma.js";
 export const onboardingService = {
     async saveCompanyDetails(userId, name, industry) {
         return await prisma.$transaction(async (tx) => {

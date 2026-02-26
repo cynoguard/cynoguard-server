@@ -1,7 +1,6 @@
 import cron from "node-cron";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../plugins/prisma.js";
 import { ingestionQueue } from "./queue.js";
-const prisma = new PrismaClient();
 cron.schedule("*/10 * * * *", async () => {
     const projects = await prisma.project.findMany({
         include: {
