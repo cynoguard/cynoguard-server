@@ -39,9 +39,11 @@ jobs:
           echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
 
       # Migrate Prisma
-      - run: npx prisma migrate deploy
+# Migrate Prisma
+      - name: Migrate Prisma
+        run: npx prisma migrate deploy
         env:
-          # This ensures Prisma DEFINITELY sees the URL regardless of the .env file
+          # This maps your secret to the name Prisma is looking for
           DATABASE_URL: ${{ secrets.DATABASE_PROD_URL }}
 
       # Start or reload PM2 safely (handles first deploy + subsequent deploys)
@@ -49,3 +51,6 @@ jobs:
         run: |
           pm2 start ecosystem.config.cjs --only api --update-env || \
           pm2 reload ecosystem.config.cjs --only api --update-env
+        env:
+          # Ensure PM2 also gets the production URL
+          DATABASE_URL: ${{ secrets.DATABASE_PROD_URL }}
