@@ -30,9 +30,6 @@ jobs:
       # Generate Prisma client
       - run: npx prisma generate
 
-      # Migrate Prisma
-      - run: npx prisma migrate deployed
-
       # Build TypeScript code
       - run: npm run build --if-present
 
@@ -40,6 +37,9 @@ jobs:
       - run: |
           touch .env
           echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
+
+      # Migrate Prisma
+      - run: npx prisma migrate deploy
 
       # Start or reload PM2 safely (handles first deploy + subsequent deploys)
       - name: Start or Reload PM2
