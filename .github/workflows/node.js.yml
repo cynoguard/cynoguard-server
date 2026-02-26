@@ -38,10 +38,12 @@ jobs:
       - name: Debug ENV
         run: cat .env
 
+      - run: node -e "console.log(process.env.DATABASE_PROD_URL)"
       #  Prisma      
       - run: npx prisma generate
       - run: npx prisma migrate deploy
       
+
       # Start or reload PM2 safely (handles first deploy + subsequent deploys)
       - name: Start or Reload PM2
         run: |
