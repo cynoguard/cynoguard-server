@@ -11,42 +11,62 @@ import authRoutes from './routes/auth/index.js';
 import botDetectionRoutes from './routes/v1/bot-detection/index.js';
 import test from './test/index.js';
 
+// Domain Monitoring imports
+import watchDomainRoutes from './routes/v1/watch-domains/index.js';
+import candidateRoutes from './routes/v1/candidates/index.js';
+import alertRoutes from './routes/v1/alerts/index.js';
+import { setupWebSocket } from './plugins/websocket.js';
+import { setupCron } from './plugins/cron.js';
+
 declare module "fastify" {
   interface FastifyInstance {
     prisma: typeof prisma;
   }
 }
 
-const fastify:FastifyInstance = Fastify({
- logger:true
+const fastify: FastifyInstance = Fastify({
+  logger: true
 });
 
-const allowedOrigins = ['http://localhost:3000','http://localhost:3001','http://localhost:3002','http://localhost:3003'];
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'];
 
 await fastify.register(cors, {
   origin: allowedOrigins, // Restricts access to specified origins
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify allowed methods
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Specify allowed methods
   credentials: true, // If you need to handle cookies or authorization headers
 });
 
 fastify.decorate("prisma", prisma);
 
-fastify.register(fastifySwagger,swaggerOption);
-fastify.register(fastifySwaggerUi,swaggerUiOptions);
+fastify.register(fastifySwagger, swaggerOption);
+fastify.register(fastifySwaggerUi, swaggerUiOptions);
 fastify.register(app);
 fastify.register(authRoutes);
 fastify.register(botDetectionRoutes);
 //test file
 fastify.register(test);
 
-const start = async()=>{
-    try {
-        const port = 4000;
-        await fastify.listen({port:port,host:'0.0.0.0'});
-    } catch (error) {
-        fastify.log.error(error)
-        process.exit(1)
-    }
+// Domain Monitoring routes
+fastify.register(watchDomainRoutes);
+fastify.register(candidateRoutes);
+fastify.register(alertRoutes);
+
+const start = async () => {
+  try {
+    const port = 4000;
+    await fastify.listen({ port: port, host: '0.0.0.0' });
+
+    // Initialize WebSocket (after Fastify is listening)
+    setupWebSocket(fastify);
+
+    // Initialize Cron scheduler
+    setupCron();
+
+    console.log(`Server running on http://localhost:${port}`);
+  } catch (error) {
+    fastify.log.error(error)
+    process.exit(1)
+  }
 }
 
 start();
