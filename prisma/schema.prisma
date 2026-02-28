@@ -129,3 +129,89 @@ model ChallengeBank {
 
   @@map("challenge_bank")
 }
+
+// ─── Domain Monitoring ──────────────────────────────────────────
+
+enum WatchDomainStatus {
+  ACTIVE
+  PAUSED
+}
+
+enum TldStrategy {
+  SAME_TLD_ONLY
+  ALLOWLIST
+  MIXED
+}
+
+enum CandidateSource {
+  GEMINI
+  ALGO
+  MANUAL
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model WatchDomain {
+  id                  String            @id @default(uuid())
+  tenantId            String            @map("tenant_id")
+  userId              String            @map("user_id")
+  domain              String
+  label               String?
+  status              WatchDomainStatus @default(ACTIVE)
+  tldStrategy         TldStrategy       @default(MIXED)
+  tldAllowlist        String[]          @default([]) @map("tld_allowlist")
+  tldSuspicious       String[]          @default([]) @map("tld_suspicious")
+  similarityThreshold Float?            @map("similarity_threshold")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  candidates CandidateDomain[]
+  alerts     Alert[]
+
+  @@unique([tenantId, domain])
+  @@map("watch_domains")
+}
+
+model CandidateDomain {
+  id              String          @id @default(uuid())
+  watchDomainId   String          @map("watch_domain_id")
+  domain          String
+  tld             String
+  source          CandidateSource
+  similarityScore Float           @map("similarity_score")
+  isActive        Boolean         @default(true) @map("is_active")
+  rdapCheckedAt   DateTime?       @map("rdap_checked_at")
+  rdapRegistered  Boolean?        @map("rdap_registered")
+  rdapStatus      String[]        @default([]) @map("rdap_status")
+  rdapRaw         Json?           @map("rdap_raw")
+
+  watchDomain WatchDomain @relation(fields: [watchDomainId], references: [id], onDelete: Cascade)
+  alerts      Alert[]
+
+  @@unique([watchDomainId, domain])
+  @@index([watchDomainId, isActive])
+  @@map("candidate_domains")
+}
+
+model Alert {
+  id                String        @id @default(uuid())
+  tenantId          String        @map("tenant_id")
+  userId            String        @map("user_id")
+  watchDomainId     String        @map("watch_domain_id")
+  candidateDomainId String        @map("candidate_domain_id")
+  type              String        @default("SUSPICIOUS_DOMAIN")
+  severity          AlertSeverity @default(INFO)
+  message           String
+  isRead            Boolean       @default(false) @map("is_read")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  watchDomain     WatchDomain     @relation(fields: [watchDomainId], references: [id], onDelete: Cascade)
+  candidateDomain CandidateDomain @relation(fields: [candidateDomainId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, isRead, createdAt])
+  @@map("alerts")
+}
