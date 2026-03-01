@@ -20,13 +20,12 @@ enum UserRole {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  firebaseId  String   @unique @map("firebase_id")
-  email       String   @unique
-  firstName   String?  @map("first_name")
-  lastName    String?  @map("last_name")
-  role        UserRole @default(MEMBER)
-  isOnboarded Boolean  @default(false) @map("is_onboarded")
+  id         String   @id @default(cuid())
+  firebaseId String   @unique @map("firebase_id")
+  email      String   @unique
+  firstName  String?  @map("first_name")
+  lastName   String?  @map("last_name")
+  role       UserRole @default(MEMBER)
 
   // membership OrganizationMember?
 
@@ -34,18 +33,23 @@ model User {
   isActive  Boolean   @default(true) @map("is_active")
   lastLogin DateTime? @map("last_login")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  organizationMembers OrganizationMember[]
 
   @@map("users") // The table in AWS RDS will still be called "users"
 }
 
 model Organization {
   id             String   @id @default(uuid())
-  name           String
+  name           String   @unique
   industry       String?
+  businessType   String?  @map("business_type")
+  primaryUses    String[] @map("primary_uses")
+  teamSize       String?  @map("team_size")
   discoverSource String?  @map("discover_source")
   offerCode      String?  @map("offer_code")
+  isOnboarded    Boolean  @default(false) @map("is_onboarded")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -65,7 +69,12 @@ model Project {
   organization   Organization @relation(fields: [organizationId], references: [id])
   apiKeys        ApiKey[]
   detections     Detection[]
+  industry       String?      @map("industry")
+  environment    String       @map("environment") // e.g. production, staging, development
+  primary_domain String       @map("primary_domain")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
+  @@unique([name, organizationId]) // Ensure project names are unique within an organization
   @@map("projects")
 }
 
@@ -107,12 +116,15 @@ model Detection {
 model OrganizationMember {
   id             String @id @default(uuid())
   organizationId String @map("organization_id")
-  userId         String @unique @map("user_id")
+  userId         String @map("user_id")
   role           String @default("OWNER")
 
   // Relations
   organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
 
+  // This ensures a user can't be added to the same org twice
+  @@unique([userId, organizationId])
   @@map("organization_members")
 }
 

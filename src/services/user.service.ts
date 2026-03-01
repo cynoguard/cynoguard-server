@@ -18,20 +18,34 @@ export const getUserByFirebaseId = async (firebaseId: string) => {
   });
 };
 
-export const handleDbUser = async (firebaseId: string, email: string, firstName: string | "", lastName: string | "") => {
-   const user = await prisma.user.upsert({
-      where: { firebaseId: firebaseId },
-      update: {
-        lastLogin: new Date(), // Keep track of activity
-      },
-      create: {
-        firebaseId: firebaseId,
-        email: email!,
-        firstName: firstName || "",
-        lastName:  lastName || "",
-        role: "SUPER_ADMIN", // Default role
-      },
-    });
- 
-    return user;
+export const handleDbUser = async (
+  firebaseId: string,
+  email: string,
+  firstName: string | "",
+  lastName: string | "",
+) => {
+  const user = await prisma.user.upsert({
+    where: { firebaseId: firebaseId },
+    update: {
+      lastLogin: new Date(), // Keep track of activity
+    },
+    create: {
+      firebaseId: firebaseId,
+      email: email! || "",
+      firstName: firstName || "",
+      lastName: lastName || "",
+      role: "SUPER_ADMIN", // Default role
+    },
+  });
+
+  return user;
+};
+
+export const checkAssociatedOrganizations = async (userId: string) => {
+  const memberships = await prisma.organizationMember.findMany({
+    where: { userId: userId },
+    select: { organization: true, id: true },
+  });
+
+  return memberships.map((memberships) => memberships.organization);
 };
