@@ -18,10 +18,11 @@ import analyticsRoutes from "./routes/social-media-monitoring/analytics.routes.j
 import keywordRoutes from "./routes/social-media-monitoring/keyword.routes.js";
 import dashboardRoutes from "./routes/social-media-monitoring/dashboard.routes.js";
 import alertRoutes from "./routes/social-media-monitoring/alert.routes.js";
+
 const fastify = Fastify({
     logger: true
 });
-const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'];
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:5173'];
 await fastify.register(cors, {
     origin: allowedOrigins, // Restricts access to specified origins
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify allowed methods
