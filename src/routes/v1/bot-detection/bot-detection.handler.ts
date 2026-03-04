@@ -163,7 +163,7 @@ export const reTakeBotChallenge = async(request:FastifyRequest,reply:FastifyRepl
         const challengeToken = jwt.sign({cid:challengeData?.id,answer:valueArr[randomPosition-1]}, process.env.JWT_SECRET as string, {expiresIn:"5m"})
 
         request.auditData  = {detectionId:decodedToken.did,challengeId:challengeData?.id || null};
-         const cookieToken = jwt.sign({assessment:"passed"}, process.env.JWT_SECRET as string, {expiresIn:"3d"})
+        //  const cookieToken = jwt.sign({assessment:"passed"}, process.env.JWT_SECRET as string, {expiresIn:"3d"})
 
         return reply.code(200).send({
         status:"success",message:"Sent a new challenge",    
