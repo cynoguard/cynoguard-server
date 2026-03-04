@@ -9,7 +9,6 @@ export const verifyHuman = async(request:FastifyRequest<{Body:verifyHumanBodyTyp
    const signals:verifyHumanBodyType = request.body;
    try {
 
-
     let score = 100; // Start perfect, subtract for risks
 
     // TIER 1: Heuristics logic
@@ -125,7 +124,6 @@ export const verifyBotChallenge = async(request:FastifyRequest,reply:FastifyRepl
 
 export const verifyBotSessionToken = async(request:FastifyRequest,reply:FastifyReply)=>{
     const token = request.headers.authorization?.split(" ")[1];
-    console.log(token);
     try {
 
         if(!token){

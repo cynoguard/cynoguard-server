@@ -1,37 +1,56 @@
 import { prisma } from "../plugins/prisma.js";
 
-
-export const onboardingService = {
-  async saveCompanyDetails(userId: string, name: string, industry?: string) {
+   export const updateOnboardingData = async(data:any,uid:string,orgId:string)=>{
     return await prisma.$transaction(async (tx) => {
-      const org = await tx.organization.create({
-        data: { 
-          name,
-          industry: industry ?? null}
-      });
+      const org = await tx.organization.upsert({
+        where:{id:orgId},
+        update:{
+            name:data.name,
+            teamSize:data.teamSize,
+            businessType:data.businessType,
+            primaryUses: data.primaryUses,
+        },
+        create:{ 
+          id:orgId,
+          name:data.name,
+            teamSize:data.teamSize,
+            businessType:data.businessType,
+            primaryUses: data.primaryUses,
+      }});
 
-      await tx.organizationMember.create({
-        data: {
-          organizationId: org.id,
-          userId: userId,
+      await tx.organizationMember.upsert({
+        where:
+        {
+            userId_organizationId:{
+              userId:uid,
+              organizationId:orgId,
+            }
+        },
+        update:{},
+        create: {
+          organizationId: orgId,
+          userId: uid,
           role: "OWNER"
         }
       });
 
-      const user = await tx.user.update({
-        where: { id: userId },
-        data: { isOnboarded: true }
-      });
 
-      return { organizationId: org.id, isOnboarded: user.isOnboarded };
-    });
-  },
+      const project = await tx.project.create({data:{
+         name:data.projectName,
+         primary_domain:data.primaryDomain,
+         environment:data.environmentType,
+         industry:data?.industryNiche,
+         organization:{
+          connect:{
+            id:orgId,
+          }
+         },
+         createdAt:new Date(),
 
-  async getOnboardingStatus(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isOnboarded: true, email: true }
+      }});
+
+      return {org,project};
+
     });
-    return user;
-  }
-};
+  
+  };

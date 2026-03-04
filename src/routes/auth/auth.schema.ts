@@ -17,12 +17,18 @@ export const authenticateSchema = {
       status: Type.String(),
       message: Type.String(),
       data: Type.Object({
+        token:Type.Optional(Type.String()),
         uid: Type.String(),
         email: Type.String(),
         role: Type.String(),
         first_name: Type.String(),
         last_name: Type.String(),
-        is_onboarded: Type.Boolean(),
+        organizations: Type.Optional(Type.Array(Type.Object({
+          id: Type.String(),
+          name: Type.String(),
+          session_token:Type.Optional(Type.String()),
+          is_onboarded:Type.Boolean()
+        }))),
       })
     }),
     401: Type.Object({ error: Type.String(), message: Type.String() })
