@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { verifyFirebaseToken } from "../../services/firebase.service.js";
 import {
   checkAssociatedOrganizations,
+  getOrganizationMember,
   handleDbUser,
 } from "../../services/user.service.js";
 
@@ -79,3 +80,36 @@ export const authenticateUser = async (
       .send({ error: "Internal Server Error", message: error.message });
   }
 };
+
+
+
+export const getAuthUser = async(request:FastifyRequest,reply:FastifyReply)=>{
+  const token = request.headers.authorization?.replace("Bearer ", "").split(" ")[1];
+  const {orgName} = request.query as { orgName: string };
+ try {
+
+  if(!token){
+    return reply.code(404).send({ error: "Not-Found", message: "No token provided" });
+  }
+
+  const decodedToken = await verifyFirebaseToken(token);
+
+  if (!decodedToken) {
+    return reply
+      .code(401)
+      .send({ error: "Unauthorized", message: "Invalid Firebase token" });
+  }
+
+  const { uid } = decodedToken;
+
+  const orgMemberData = await getOrganizationMember(uid,orgName);
+
+  return reply.code(200).send({status:"success", message:"User fetched successfully", data:{org_member_info:orgMemberData}})
+   
+ } catch (error:any) {
+   return reply
+      .code(500)
+      .send({ error: "Internal Server Error", message: error.message });
+  
+ }
+}
