@@ -1,15 +1,6 @@
 import { prisma } from "../plugins/prisma.js";
 
-// Add 'export' so other files can use it
-export const getUserByEmail = async (firebaseId: string) => {
-  return await prisma.user.findUnique({
-    where: {
-      firebaseId: firebaseId,
-    },
-  });
-};
 
-// Add 'export' so other files can use it
 export const getUserByFirebaseId = async (firebaseId: string) => {
   return await prisma.user.findUnique({
     where: {
@@ -49,3 +40,19 @@ export const checkAssociatedOrganizations = async (userId: string) => {
 
   return memberships.map((memberships) => memberships.organization);
 };
+
+
+export const getOrganizationMember = async (userId: string, orgName: string) => {
+  return await prisma.organizationMember.findFirst({
+    where:{
+      userId:userId,
+      organization:{
+        name:orgName,
+      }
+    },
+    select:{
+      organization:true,
+      user:true,
+    }
+  });
+}
