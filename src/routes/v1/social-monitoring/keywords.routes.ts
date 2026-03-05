@@ -16,14 +16,16 @@ async function assertOwner(
 ): Promise<boolean> {
   const project = await fastify.prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true },
+    select: { organizationId: true },
   });
   if (!project) return false;
-  return project.id === userId;
+  const member = await fastify.prisma.organizationMember.findFirst({
+    where: { organizationId: project.organizationId, userId },
+  });
+  return !!member;
 }
 
 export default async function keywordRoutes(fastify: FastifyInstance) {
-  // ── GET /api/v1/projects/:projectId/keywords ──────────────────
   fastify.get<{ Params: { projectId: string } }>(
     "/api/v1/projects/:projectId/keywords",
     {
@@ -36,21 +38,17 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { projectId } = request.params;
       const userId: string = (request as any).userId;
-
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
-
       const keywords = await fastify.prisma.monitoringKeyword.findMany({
         where: { projectId },
         orderBy: { createdAt: "desc" },
       });
-
       return reply.send({ keywords });
     }
   );
 
-  // ── POST /api/v1/projects/:projectId/keywords ─────────────────
   fastify.post<{ Params: { projectId: string }; Body: { keyword: string } }>(
     "/api/v1/projects/:projectId/keywords",
     {
@@ -64,17 +62,13 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { projectId } = request.params;
       const userId: string = (request as any).userId;
-
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
-
-      // Cap at 50 keywords per project
       const count = await fastify.prisma.monitoringKeyword.count({ where: { projectId } });
       if (count >= 50) {
         return reply.status(422).send({ error: "Maximum 50 keywords per project" });
       }
-
       try {
         const kw = await fastify.prisma.monitoringKeyword.create({
           data: { projectId, keyword: request.body.keyword.trim() },
@@ -90,11 +84,7 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ── PATCH /api/v1/projects/:projectId/keywords/:keywordId ─────
-  fastify.patch<{
-    Params: { projectId: string; keywordId: string };
-    Body: { isActive: boolean };
-  }>(
+  fastify.patch<{ Params: { projectId: string; keywordId: string }; Body: { isActive: boolean } }>(
     "/api/v1/projects/:projectId/keywords/:keywordId",
     {
       schema: {
@@ -107,16 +97,13 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { projectId, keywordId } = request.params;
       const userId: string = (request as any).userId;
-
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
-
       const kw = await fastify.prisma.monitoringKeyword.findFirst({
         where: { id: keywordId, projectId },
       });
       if (!kw) return reply.status(404).send({ error: "Keyword not found" });
-
       const updated = await fastify.prisma.monitoringKeyword.update({
         where: { id: keywordId },
         data: { isActive: request.body.isActive },
@@ -125,7 +112,6 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ── DELETE /api/v1/projects/:projectId/keywords/:keywordId ────
   fastify.delete<{ Params: { projectId: string; keywordId: string } }>(
     "/api/v1/projects/:projectId/keywords/:keywordId",
     {
@@ -138,16 +124,13 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { projectId, keywordId } = request.params;
       const userId: string = (request as any).userId;
-
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
-
       const kw = await fastify.prisma.monitoringKeyword.findFirst({
         where: { id: keywordId, projectId },
       });
       if (!kw) return reply.status(404).send({ error: "Keyword not found" });
-
       await fastify.prisma.monitoringKeyword.delete({ where: { id: keywordId } });
       return reply.status(204).send();
     }

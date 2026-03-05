@@ -17,21 +17,19 @@ async function assertOwner(
 ): Promise<boolean> {
   const project = await fastify.prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true },
+    select: { organizationId: true },
   });
   if (!project) return false;
-  return project.id === userId;
+  const member = await fastify.prisma.organizationMember.findFirst({
+    where: { organizationId: project.organizationId, userId },
+  });
+  return !!member;
 }
 
 export default async function mentionRoutes(fastify: FastifyInstance) {
-  // ── GET /api/v1/projects/:projectId/mentions ──────────────────
-  // Paginated list with optional filters
   fastify.get<{
     Params: { projectId: string };
-    Querystring: {
-      page?: string; limit?: string;
-      status?: string; riskLevel?: string;
-    };
+    Querystring: { page?: string; limit?: string; status?: string; riskLevel?: string };
   }>(
     "/api/v1/projects/:projectId/mentions",
     {
@@ -50,21 +48,17 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { projectId } = request.params;
       const userId: string = (request as any).userId;
-
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
-
       const page = Math.max(parseInt(request.query.page ?? "1", 10), 1);
       const limit = Math.min(Math.max(parseInt(request.query.limit ?? "20", 10), 1), 100);
       const { status, riskLevel } = request.query;
-
       const where = {
         projectId,
         ...(status && { status: status as any }),
         ...(riskLevel && { riskLevel: riskLevel as any }),
       };
-
       const [data, total] = await Promise.all([
         fastify.prisma.brandMention.findMany({
           where,
@@ -74,7 +68,6 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
         }),
         fastify.prisma.brandMention.count({ where }),
       ]);
-
       return reply.send({
         data,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
@@ -82,8 +75,6 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ── GET /api/v1/projects/:projectId/mentions/stats ────────────
-  // Aggregates for dashboard charts
   fastify.get<{ Params: { projectId: string } }>(
     "/api/v1/projects/:projectId/mentions/stats",
     {
@@ -96,11 +87,9 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { projectId } = request.params;
       const userId: string = (request as any).userId;
-
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
-
       const [byRisk, byStatus, recentScans] = await Promise.all([
         fastify.prisma.brandMention.groupBy({
           by: ["riskLevel"],
@@ -122,12 +111,10 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
           },
         }),
       ]);
-
       return reply.send({ byRisk, byStatus, recentScans });
     }
   );
 
-  // ── GET /api/v1/projects/:projectId/mentions/:mentionId ───────
   fastify.get<{ Params: { projectId: string; mentionId: string } }>(
     "/api/v1/projects/:projectId/mentions/:mentionId",
     {
@@ -140,17 +127,13 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { projectId, mentionId } = request.params;
       const userId: string = (request as any).userId;
-
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
-
       const mention = await fastify.prisma.brandMention.findFirst({
         where: { id: mentionId, projectId },
       });
       if (!mention) return reply.status(404).send({ error: "Mention not found" });
-
-      // Auto-mark as viewed
       if (mention.status === "NEW") {
         await fastify.prisma.brandMention.update({
           where: { id: mentionId },
@@ -158,16 +141,11 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
         });
         mention.status = "VIEWED";
       }
-
       return reply.send(mention);
     }
   );
 
-  // ── PATCH /api/v1/projects/:projectId/mentions/:mentionId ─────
-  fastify.patch<{
-    Params: { projectId: string; mentionId: string };
-    Body: { status: string };
-  }>(
+  fastify.patch<{ Params: { projectId: string; mentionId: string }; Body: { status: string } }>(
     "/api/v1/projects/:projectId/mentions/:mentionId",
     {
       schema: {
@@ -180,16 +158,13 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { projectId, mentionId } = request.params;
       const userId: string = (request as any).userId;
-
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
-
       const mention = await fastify.prisma.brandMention.findFirst({
         where: { id: mentionId, projectId },
       });
       if (!mention) return reply.status(404).send({ error: "Mention not found" });
-
       const updated = await fastify.prisma.brandMention.update({
         where: { id: mentionId },
         data: { status: request.body.status as any },
@@ -198,8 +173,6 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ── POST /api/v1/projects/:projectId/mentions/scan ────────────
-  // Manually trigger a scan without waiting for the 6-hour cron
   fastify.post<{ Params: { projectId: string } }>(
     "/api/v1/projects/:projectId/mentions/scan",
     {
@@ -212,11 +185,9 @@ export default async function mentionRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { projectId } = request.params;
       const userId: string = (request as any).userId;
-
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
-
       const result = await scanProject(fastify.prisma, projectId, request.log);
       return reply.status(202).send({ message: "Scan complete", ...result });
     }

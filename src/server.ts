@@ -38,6 +38,8 @@ await fastify.register(cors, {
 
 fastify.decorate("prisma", prisma);
 
+
+
 fastify.register(fastifySwagger, swaggerOption);
 fastify.register(fastifySwaggerUi, swaggerUiOptions);
 fastify.register(app);
