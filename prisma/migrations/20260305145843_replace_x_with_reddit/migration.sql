@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "Platform" AS ENUM ('X');
+CREATE TYPE "Platform" AS ENUM ('REDDIT');
 
 -- CreateEnum
 CREATE TYPE "RiskLevel" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
@@ -14,7 +14,7 @@ CREATE TYPE "ScanStatus" AS ENUM ('SUCCESS', 'FAILED', 'PARTIAL');
 CREATE TABLE "SocialHandler" (
     "id" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
-    "platform" "Platform" NOT NULL DEFAULT 'X',
+    "platform" "Platform" NOT NULL DEFAULT 'REDDIT',
     "bearerTokenEncrypted" TEXT NOT NULL,
     "isValid" BOOLEAN NOT NULL DEFAULT false,
     "lastValidatedAt" TIMESTAMP(3),
@@ -40,7 +40,7 @@ CREATE TABLE "MonitoringKeyword" (
 CREATE TABLE "BrandMention" (
     "id" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
-    "platform" "Platform" NOT NULL DEFAULT 'X',
+    "platform" "Platform" NOT NULL DEFAULT 'REDDIT',
     "externalId" TEXT NOT NULL,
     "content" TEXT NOT NULL,
     "authorUsername" TEXT NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE "BrandMention" (
 CREATE TABLE "ScanLog" (
     "id" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
-    "platform" "Platform" NOT NULL DEFAULT 'X',
+    "platform" "Platform" NOT NULL DEFAULT 'REDDIT',
     "scanStatus" "ScanStatus" NOT NULL DEFAULT 'SUCCESS',
     "mentionsFound" INTEGER NOT NULL DEFAULT 0,
     "highRiskCount" INTEGER NOT NULL DEFAULT 0,

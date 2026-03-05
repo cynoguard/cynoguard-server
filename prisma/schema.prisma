@@ -149,7 +149,7 @@ model ChallengeBank {
 model SocialHandler {
   id                   String    @id @default(uuid())
   projectId            String
-  platform             Platform  @default(X)
+  platform             Platform  @default(REDDIT)
   bearerTokenEncrypted String
   isValid              Boolean   @default(false)
   lastValidatedAt      DateTime?
@@ -179,7 +179,7 @@ model MonitoringKeyword {
 model BrandMention {
   id             String        @id @default(uuid())
   projectId      String
-  platform       Platform      @default(X)
+  platform       Platform      @default(REDDIT)
   externalId     String
   content        String
   authorUsername String
@@ -206,7 +206,7 @@ model BrandMention {
 model ScanLog {
   id            String     @id @default(uuid())
   projectId     String
-  platform      Platform   @default(X)
+  platform      Platform   @default(REDDIT)
   scanStatus    ScanStatus @default(SUCCESS)
   mentionsFound Int        @default(0)
   highRiskCount Int        @default(0)
@@ -219,7 +219,7 @@ model ScanLog {
 }
 
 enum Platform {
-  X
+  REDDIT
 }
 
 enum RiskLevel {
