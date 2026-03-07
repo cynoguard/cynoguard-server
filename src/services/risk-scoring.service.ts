@@ -1,12 +1,14 @@
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type Sentiment = "POSITIVE" | "NEGATIVE" | "NEUTRAL";
 
 export interface RiskResult {
   score: number;
   level: RiskLevel;
   flags: string[];
+  sentiment: Sentiment;
 }
 
-// ─── Keyword Registry ─────────────────────────────────────────────
+// ─── Risk Keywords ────────────────────────────────────────────────
 
 const CRITICAL_KEYWORDS = [
   "scam", "sc@m", "fraud", "fr@ud", "ponzi", "pyramid scheme",
@@ -41,6 +43,28 @@ const SUSPICIOUS_LINK_PATTERNS = [
   /free.*token/i, /claim.*reward/i, /wallet.*connect/i,
 ];
 
+// ─── Sentiment Keywords ───────────────────────────────────────────
+
+const POSITIVE_KEYWORDS = [
+  "great", "amazing", "excellent", "love", "best", "awesome", "fantastic",
+  "perfect", "wonderful", "impressed", "highly recommend", "recommend",
+  "thank you", "thanks", "helpful", "useful", "easy to use", "well done",
+  "good job", "brilliant", "outstanding", "top notch", "reliable",
+  "fast", "efficient", "secure", "trusted", "legit", "legitimate",
+  "solid", "impressed", "incredible", "five star", "5 star", "10/10",
+  "happy", "satisfied", "pleased", "glad", "enjoy", "enjoying",
+];
+
+const NEGATIVE_KEYWORDS = [
+  "bad", "terrible", "horrible", "awful", "worst", "hate", "disgusting",
+  "broken", "useless", "waste", "scam", "fraud", "fake", "disappointed",
+  "disappointing", "frustrating", "frustrated", "angry", "annoying",
+  "rip off", "ripoff", "cheated", "lied", "avoid", "stay away",
+  "do not use", "never again", "refund", "support is bad", "not working",
+  "doesn't work", "bug", "crash", "slow", "poor", "mediocre",
+  "overpriced", "expensive", "not worth", "regret",
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────
 
 function normalise(text: string): string {
@@ -55,6 +79,24 @@ function hasExcessiveCaps(text: string): boolean {
   const words = text.split(/\s+/).filter((w) => w.length > 3);
   if (words.length < 3) return false;
   return words.filter((w) => w === w.toUpperCase()).length / words.length > 0.5;
+}
+
+function scoreSentiment(text: string): Sentiment {
+  const lower = text.toLowerCase();
+  let positiveHits = 0;
+  let negativeHits = 0;
+
+  for (const kw of POSITIVE_KEYWORDS) {
+    if (lower.includes(kw)) positiveHits++;
+  }
+  for (const kw of NEGATIVE_KEYWORDS) {
+    if (lower.includes(kw)) negativeHits++;
+  }
+
+  if (positiveHits === 0 && negativeHits === 0) return "NEUTRAL";
+  if (positiveHits > negativeHits) return "POSITIVE";
+  if (negativeHits > positiveHits) return "NEGATIVE";
+  return "NEUTRAL";
 }
 
 // ─── Main Export ──────────────────────────────────────────────────
@@ -109,5 +151,26 @@ export function scoreContent(text: string): RiskResult {
     score >= 45 ? "HIGH" :
     score >= 20 ? "MEDIUM" : "LOW";
 
-  return { score, level, flags };
+  // Sentiment — negative if high risk score, otherwise keyword-based
+  let sentiment: Sentiment;
+  if (score >= 45) {
+    sentiment = "NEGATIVE"; // HIGH/CRITICAL risk is always negative
+  } else {
+    sentiment = scoreSentiment(text);
+  }
+
+  return { score, level, flags, sentiment };
 }
+
+// ─── Keyword Matcher ──────────────────────────────────────────────
+// Returns which of the monitored keywords first appears in the text
+
+export function findMatchedKeyword(text: string, keywords: string[]): string | null {
+  const lower = text.toLowerCase();
+  for (const kw of keywords) {
+    if (lower.includes(kw.toLowerCase())) return kw;
+  }
+  return null;
+}
+
+

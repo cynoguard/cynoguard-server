@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type { FastifyBaseLogger } from "fastify";
 import { fetchMentions } from "./x.service.js";
-import { scoreContent } from "./risk-scoring.service.js";
+import { scoreContent, findMatchedKeyword } from "./risk-scoring.service.js";
 
 export interface ScanResult {
   projectId: string;
@@ -11,11 +11,6 @@ export interface ScanResult {
   error?: string | null;
 }
 
-/**
- * Runs a full brand-mention scan for one project.
- * Accepts prisma as a parameter so it uses the existing
- * decorated fastify.prisma instance — no second connection opened.
- */
 export async function scanProject(
   prisma: PrismaClient,
   projectId: string,
@@ -23,7 +18,6 @@ export async function scanProject(
 ): Promise<ScanResult> {
   logger.info({ projectId }, "[SocialMonitoring] Starting scan");
 
-  // 1. Load the X handler
   const handler = await prisma.socialHandler.findUnique({
     where: { projectId_platform: { projectId, platform: "X" } },
   });
@@ -33,7 +27,6 @@ export async function scanProject(
     return { projectId, mentionsFound: 0, newMentions: 0, highRiskCount: 0 };
   }
 
-  // 2. Load active keywords
   const keywordRows = await prisma.monitoringKeyword.findMany({
     where: { projectId, isActive: true },
   });
@@ -43,6 +36,8 @@ export async function scanProject(
     return { projectId, mentionsFound: 0, newMentions: 0, highRiskCount: 0 };
   }
 
+  const keywords = keywordRows.map((k) => k.keyword);
+
   let mentionsFound = 0;
   let newMentions = 0;
   let highRiskCount = 0;
@@ -50,21 +45,27 @@ export async function scanProject(
   let errorMessage: string | null = null;
 
   try {
-    // 3. Fetch last 50 tweets (requirement: last 50 feeds per scan)
     const tweets = await fetchMentions(
       handler.bearerTokenEncrypted,
-      keywordRows.map((k) => k.keyword),
+      keywords,
       50
     );
     mentionsFound = tweets.length;
 
-    // 4. Score and upsert each tweet
     for (const tweet of tweets) {
-      const { score, level, flags } = scoreContent(tweet.text);
+      const { score, level, flags, sentiment } = scoreContent(tweet.text);
+
+      // Find which keyword matched this tweet
+      const matchedKeyword = findMatchedKeyword(tweet.text, keywords);
 
       const mention = await prisma.brandMention.upsert({
         where: { projectId_externalId: { projectId, externalId: tweet.id } },
-        update: { likeCount: tweet.likeCount, retweetCount: tweet.retweetCount },
+        // On repeat scans — refresh engagement counts only
+        update: {
+          likeCount: tweet.likeCount,
+          retweetCount: tweet.retweetCount,
+        },
+        // New mention — store everything including sentiment and matched keyword
         create: {
           projectId,
           platform: "X",
@@ -78,12 +79,13 @@ export async function scanProject(
           riskScore: score,
           riskLevel: level,
           riskFlags: flags,
+          sentiment,
+          matchedKeyword,
           status: "NEW",
           publishedAt: tweet.publishedAt,
         },
       });
 
-      // Newly created records have identical createdAt/updatedAt
       if (mention.createdAt.getTime() === mention.updatedAt.getTime()) {
         newMentions++;
       }
@@ -96,7 +98,6 @@ export async function scanProject(
     errorMessage = msg;
   }
 
-  // 5. Write scan audit log
   await prisma.scanLog.create({
     data: { projectId, platform: "X", scanStatus, mentionsFound, highRiskCount, errorMessage },
   });
@@ -105,10 +106,6 @@ export async function scanProject(
   return { projectId, mentionsFound, newMentions, highRiskCount, error: errorMessage };
 }
 
-/**
- * Scans all projects that have a valid X handler + active keywords.
- * Called by the 6-hour cron job.
- */
 export async function scanAllProjects(
   prisma: PrismaClient,
   logger: FastifyBaseLogger
@@ -131,3 +128,5 @@ export async function scanAllProjects(
 
   logger.info("[SocialMonitoring] Cron: all scans complete");
 }
+
+

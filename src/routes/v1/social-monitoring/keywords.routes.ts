@@ -26,12 +26,14 @@ async function assertOwner(
 }
 
 export default async function keywordRoutes(fastify: FastifyInstance) {
+
+  // ── GET /keywords ──────────────────────────────────────────────
   fastify.get<{ Params: { projectId: string } }>(
     "/api/v1/projects/:projectId/keywords",
     {
       schema: {
         tags: ["Social Monitoring"],
-        description: "List all monitoring keywords for a project",
+        description: "List all monitoring keywords. Each keyword includes a mention count.",
         params: Type.Object({ projectId: Type.String() }),
       },
     },
@@ -41,20 +43,47 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
+
       const keywords = await fastify.prisma.monitoringKeyword.findMany({
         where: { projectId },
         orderBy: { createdAt: "desc" },
       });
-      return reply.send({ keywords });
+
+      // Count mentions per keyword using the matchedKeyword field
+      const mentionCounts = await fastify.prisma.brandMention.groupBy({
+        by: ["matchedKeyword"],
+        where: {
+          projectId,
+          matchedKeyword: { not: null },
+        },
+        _count: true,
+      });
+
+      // Build lookup map: keyword → count
+      const countMap = new Map<string, number>();
+      for (const row of mentionCounts) {
+        if (row.matchedKeyword) {
+          countMap.set(row.matchedKeyword, row._count);
+        }
+      }
+
+      // Attach mentionCount to each keyword
+      const result = keywords.map((kw) => ({
+        ...kw,
+        mentionCount: countMap.get(kw.keyword) ?? 0,
+      }));
+
+      return reply.send({ keywords: result });
     }
   );
 
+  // ── POST /keywords ─────────────────────────────────────────────
   fastify.post<{ Params: { projectId: string }; Body: { keyword: string } }>(
     "/api/v1/projects/:projectId/keywords",
     {
       schema: {
         tags: ["Social Monitoring"],
-        description: "Add a brand monitoring keyword",
+        description: "Add a brand monitoring keyword (max 50 per project)",
         params: Type.Object({ projectId: Type.String() }),
         body: KeywordBody,
       },
@@ -65,15 +94,17 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
       if (!(await assertOwner(fastify, projectId, userId))) {
         return reply.status(403).send({ error: "Forbidden" });
       }
+
       const count = await fastify.prisma.monitoringKeyword.count({ where: { projectId } });
       if (count >= 50) {
         return reply.status(422).send({ error: "Maximum 50 keywords per project" });
       }
+
       try {
         const kw = await fastify.prisma.monitoringKeyword.create({
           data: { projectId, keyword: request.body.keyword.trim() },
         });
-        return reply.status(201).send(kw);
+        return reply.status(201).send({ ...kw, mentionCount: 0 });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "";
         if (msg.includes("Unique constraint")) {
@@ -84,6 +115,7 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // ── PATCH /keywords/:keywordId ─────────────────────────────────
   fastify.patch<{ Params: { projectId: string; keywordId: string }; Body: { isActive: boolean } }>(
     "/api/v1/projects/:projectId/keywords/:keywordId",
     {
@@ -108,10 +140,11 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
         where: { id: keywordId },
         data: { isActive: request.body.isActive },
       });
-      return reply.send(updated);
+      return reply.send({ ...updated, mentionCount: 0 });
     }
   );
 
+  // ── DELETE /keywords/:keywordId ────────────────────────────────
   fastify.delete<{ Params: { projectId: string; keywordId: string } }>(
     "/api/v1/projects/:projectId/keywords/:keywordId",
     {
@@ -136,3 +169,5 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     }
   );
 }
+
+

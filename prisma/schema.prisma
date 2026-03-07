@@ -149,7 +149,7 @@ model ChallengeBank {
 model SocialHandler {
   id                   String    @id @default(uuid())
   projectId            String
-  platform             Platform  @default(REDDIT)
+  platform             Platform  @default(X)
   bearerTokenEncrypted String
   isValid              Boolean   @default(false)
   lastValidatedAt      DateTime?
@@ -179,7 +179,7 @@ model MonitoringKeyword {
 model BrandMention {
   id             String        @id @default(uuid())
   projectId      String
-  platform       Platform      @default(REDDIT)
+  platform       Platform      @default(X)
   externalId     String
   content        String
   authorUsername String
@@ -195,18 +195,22 @@ model BrandMention {
   scannedAt      DateTime      @default(now())
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  sentiment      Sentiment     @default(NEUTRAL)
+  matchedKeyword String?
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, externalId])
   @@index([projectId, riskLevel])
   @@index([projectId, status])
+  @@index([projectId, sentiment])
+  @@index([projectId, matchedKeyword])
 }
 
 model ScanLog {
   id            String     @id @default(uuid())
   projectId     String
-  platform      Platform   @default(REDDIT)
+  platform      Platform   @default(X)
   scanStatus    ScanStatus @default(SUCCESS)
   mentionsFound Int        @default(0)
   highRiskCount Int        @default(0)
@@ -219,7 +223,7 @@ model ScanLog {
 }
 
 enum Platform {
-  REDDIT
+  X
 }
 
 enum RiskLevel {
@@ -241,3 +245,10 @@ enum ScanStatus {
   FAILED
   PARTIAL
 }
+
+enum Sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+
