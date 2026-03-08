@@ -1,5 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import type { FastifyInstance } from "fastify";
+import { scanProject } from "../../../services/monitoring.service.js";
 
 const KeywordBody = Type.Object({
   keyword: Type.String({ minLength: 2, maxLength: 100 }),
@@ -52,14 +53,10 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
       // Count mentions per keyword using the matchedKeyword field
       const mentionCounts = await fastify.prisma.brandMention.groupBy({
         by: ["matchedKeyword"],
-        where: {
-          projectId,
-          matchedKeyword: { not: null },
-        },
+        where: { projectId, matchedKeyword: { not: null } },
         _count: true,
       });
 
-      // Build lookup map: keyword → count
       const countMap = new Map<string, number>();
       for (const row of mentionCounts) {
         if (row.matchedKeyword) {
@@ -67,7 +64,6 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
         }
       }
 
-      // Attach mentionCount to each keyword
       const result = keywords.map((kw) => ({
         ...kw,
         mentionCount: countMap.get(kw.keyword) ?? 0,
@@ -83,7 +79,7 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     {
       schema: {
         tags: ["Social Monitoring"],
-        description: "Add a brand monitoring keyword (max 50 per project)",
+        description: "Add a brand monitoring keyword. Automatically triggers a background scan so results appear immediately.",
         params: Type.Object({ projectId: Type.String() }),
         body: KeywordBody,
       },
@@ -95,7 +91,9 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: "Forbidden" });
       }
 
-      const count = await fastify.prisma.monitoringKeyword.count({ where: { projectId } });
+      const count = await fastify.prisma.monitoringKeyword.count({
+        where: { projectId },
+      });
       if (count >= 50) {
         return reply.status(422).send({ error: "Maximum 50 keywords per project" });
       }
@@ -104,7 +102,15 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
         const kw = await fastify.prisma.monitoringKeyword.create({
           data: { projectId, keyword: request.body.keyword.trim() },
         });
+
+        // Fire background scan immediately — don't await so client gets
+        // a fast response. Scan runs silently in the background.
+        scanProject(fastify.prisma, projectId, fastify.log).catch((err) => {
+          fastify.log.error({ err }, "[SocialMonitoring] Background scan failed after keyword add");
+        });
+
         return reply.status(201).send({ ...kw, mentionCount: 0 });
+
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "";
         if (msg.includes("Unique constraint")) {
@@ -136,10 +142,19 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
         where: { id: keywordId, projectId },
       });
       if (!kw) return reply.status(404).send({ error: "Keyword not found" });
+
       const updated = await fastify.prisma.monitoringKeyword.update({
         where: { id: keywordId },
         data: { isActive: request.body.isActive },
       });
+
+      // If keyword was re-enabled, trigger a background scan
+      if (request.body.isActive) {
+        scanProject(fastify.prisma, projectId, fastify.log).catch((err) => {
+          fastify.log.error({ err }, "[SocialMonitoring] Background scan failed after keyword enable");
+        });
+      }
+
       return reply.send({ ...updated, mentionCount: 0 });
     }
   );
@@ -169,5 +184,3 @@ export default async function keywordRoutes(fastify: FastifyInstance) {
     }
   );
 }
-
-

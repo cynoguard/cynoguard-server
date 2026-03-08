@@ -1,40 +1,24 @@
 import { TwitterApi, type TwitterApiReadOnly } from "twitter-api-v2";
-import { decrypt } from "../lib/encryption.js";
 
-// ─── Client Cache ─────────────────────────────────────────────────
-const clientCache = new Map<string, TwitterApiReadOnly>();
+// ─── Singleton Client ─────────────────────────────────────────────
+// CynoGuard owns one X API token shared across all projects.
+// Token is loaded from env at startup — never stored in DB.
 
-function getClient(encryptedToken: string): TwitterApiReadOnly {
-  if (clientCache.has(encryptedToken)) {
-    return clientCache.get(encryptedToken)!;
+let _client: TwitterApiReadOnly | null = null;
+
+function getClient(): TwitterApiReadOnly {
+  if (_client) return _client;
+
+  const token = process.env.X_BEARER_TOKEN;
+  if (!token) {
+    throw new Error(
+      "X_BEARER_TOKEN is not set in environment variables. " +
+      "Add it to your .env file."
+    );
   }
-  const client = new TwitterApi(decrypt(encryptedToken)).readOnly;
-  clientCache.set(encryptedToken, client);
-  return client;
-}
 
-// ─── Validate ─────────────────────────────────────────────────────
-
-export interface ValidationResult {
-  isValid: boolean;
-  error?: string;
-}
-
-export async function validateBearerToken(
-  encryptedToken: string
-): Promise<ValidationResult> {
-  try {
-    const client = getClient(encryptedToken);
-    await client.v2.search("test", { max_results: 10, "tweet.fields": ["id"] });
-    return { isValid: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("429")) return { isValid: true }; // rate-limited but valid
-    if (msg.includes("401") || msg.includes("403") || msg.includes("Unauthorized")) {
-      return { isValid: false, error: "Invalid bearer token (401/403)" };
-    }
-    return { isValid: false, error: msg };
-  }
+  _client = new TwitterApi(token).readOnly;
+  return _client;
 }
 
 // ─── Fetch Mentions ───────────────────────────────────────────────
@@ -52,17 +36,18 @@ export interface FetchedTweet {
 
 /**
  * Fetches the most recent tweets mentioning any of the given keywords.
- * Default: last 50 results (as per project requirement).
+ * Uses CynoGuard's shared X bearer token from env.
+ * Default: last 50 results per scan.
  */
 export async function fetchMentions(
-  encryptedToken: string,
   keywords: string[],
   maxResults = 50
 ): Promise<FetchedTweet[]> {
   if (keywords.length === 0) return [];
 
-  const client = getClient(encryptedToken);
+  const client = getClient();
 
+  // Build X search query: ("kw1" OR "kw2") -is:retweet -is:reply lang:en
   const queryParts = keywords.map((k) => `"${k}"`).join(" OR ");
   const query = `(${queryParts}) -is:retweet -is:reply lang:en`;
 

@@ -3,34 +3,29 @@ import type { PrismaClient } from "@prisma/client";
 import type { FastifyBaseLogger } from "fastify";
 import { scanAllProjects } from "../services/monitoring.service.js";
 
-let scheduledTask: cron.ScheduledTask | null = null;
-
-
+/**
+ * Starts the social monitoring cron job.
+ * Fires every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC.
+ *
+ * Uses CynoGuard's shared X_BEARER_TOKEN from env.
+ * Scans every project that has active keywords — no per-project credentials needed.
+ */
 export function startMonitoringScheduler(
   prisma: PrismaClient,
   logger: FastifyBaseLogger
 ): void {
-  if (scheduledTask) {
-    logger.warn("[SocialMonitoring] Scheduler already running");
-    return;
+  // Validate that the X token is configured before starting
+  if (!process.env.X_BEARER_TOKEN) {
+    logger.warn(
+      "[SocialMonitoring] X_BEARER_TOKEN not set — scheduler will start but scans will fail. " +
+      "Add X_BEARER_TOKEN to your .env file."
+    );
   }
 
+  cron.schedule("0 */6 * * *", async () => {
+    logger.info("[SocialMonitoring] Cron fired — scanning all projects");
+    await scanAllProjects(prisma, logger);
+  });
+
   logger.info("[SocialMonitoring] Scheduler started — fires every 6 hours");
-
-  scheduledTask = cron.schedule(
-    "0 */6 * * *",
-    async () => {
-      logger.info("[SocialMonitoring] Cron fired");
-      try {
-        await scanAllProjects(prisma, logger);
-      } catch (err) {
-        logger.error({ err }, "[SocialMonitoring] Cron error");
-      }
-    }
-  );
-}
-
-export function stopMonitoringScheduler(): void {
-  scheduledTask?.stop();
-  scheduledTask = null;
 }

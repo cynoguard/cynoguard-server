@@ -10,8 +10,8 @@ import authRoutes from "./routes/auth/index.js";
 import dashboardRoutes from "./routes/dashboard/index.js";
 import onboardingRoutes from "./routes/onboarding/index.js";
 import botDetectionRoutes from "./routes/v1/bot-detection/index.js";
-import socialMonitoringRoutes from "./routes/v1/social-monitoring/index.js";
 import { startMonitoringScheduler } from "./scheduler/monitoring.scheduler.js";
+import socialMonitoringRoutes from "./routes/v1/social-monitoring/index.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -48,6 +48,7 @@ fastify.register(botDetectionRoutes);
 fastify.register(onboardingRoutes);
 fastify.register(dashboardRoutes);
 fastify.register(socialMonitoringRoutes);
+
 
 
 const start = async () => {

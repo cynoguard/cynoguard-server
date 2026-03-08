@@ -11,6 +11,13 @@ export interface ScanResult {
   error?: string | null;
 }
 
+/**
+ * Scans one project.
+ * - Loads active keywords from DB
+ * - Uses CynoGuard's shared X token (from env) to search
+ * - Scores each tweet and saves to BrandMention table
+ * - Writes a ScanLog record
+ */
 export async function scanProject(
   prisma: PrismaClient,
   projectId: string,
@@ -18,15 +25,7 @@ export async function scanProject(
 ): Promise<ScanResult> {
   logger.info({ projectId }, "[SocialMonitoring] Starting scan");
 
-  const handler = await prisma.socialHandler.findUnique({
-    where: { projectId_platform: { projectId, platform: "X" } },
-  });
-
-  if (!handler?.isValid) {
-    logger.warn({ projectId }, "[SocialMonitoring] No valid X handler — skipping");
-    return { projectId, mentionsFound: 0, newMentions: 0, highRiskCount: 0 };
-  }
-
+  // Load active keywords — no handler check needed anymore
   const keywordRows = await prisma.monitoringKeyword.findMany({
     where: { projectId, isActive: true },
   });
@@ -45,27 +44,22 @@ export async function scanProject(
   let errorMessage: string | null = null;
 
   try {
-    const tweets = await fetchMentions(
-      handler.bearerTokenEncrypted,
-      keywords,
-      50
-    );
+    // Use CynoGuard's shared X token — no encrypted token from DB
+    const tweets = await fetchMentions(keywords, 50);
     mentionsFound = tweets.length;
 
     for (const tweet of tweets) {
       const { score, level, flags, sentiment } = scoreContent(tweet.text);
-
-      // Find which keyword matched this tweet
       const matchedKeyword = findMatchedKeyword(tweet.text, keywords);
 
       const mention = await prisma.brandMention.upsert({
         where: { projectId_externalId: { projectId, externalId: tweet.id } },
-        // On repeat scans — refresh engagement counts only
+        // On repeat scans — only refresh engagement counts
         update: {
           likeCount: tweet.likeCount,
           retweetCount: tweet.retweetCount,
         },
-        // New mention — store everything including sentiment and matched keyword
+        // New mention — save everything
         create: {
           projectId,
           platform: "X",
@@ -99,22 +93,38 @@ export async function scanProject(
   }
 
   await prisma.scanLog.create({
-    data: { projectId, platform: "X", scanStatus, mentionsFound, highRiskCount, errorMessage },
+    data: {
+      projectId,
+      platform: "X",
+      scanStatus,
+      mentionsFound,
+      highRiskCount,
+      errorMessage,
+    },
   });
 
-  logger.info({ projectId, mentionsFound, newMentions, highRiskCount }, "[SocialMonitoring] Scan complete");
+  logger.info(
+    { projectId, mentionsFound, newMentions, highRiskCount },
+    "[SocialMonitoring] Scan complete"
+  );
+
   return { projectId, mentionsFound, newMentions, highRiskCount, error: errorMessage };
 }
 
+/**
+ * Scans ALL projects that have at least one active keyword.
+ * Called by the cron scheduler every 6 hours.
+ */
 export async function scanAllProjects(
   prisma: PrismaClient,
   logger: FastifyBaseLogger
 ): Promise<void> {
   logger.info("[SocialMonitoring] Cron: starting all-project scan");
 
+  // Get every project that has at least one active keyword
+  // No handler check — CynoGuard's token works for everyone
   const projects = await prisma.project.findMany({
     where: {
-      socialHandlers: { some: { isValid: true, platform: "X" } },
       keywords: { some: { isActive: true } },
     },
     select: { id: true },
@@ -128,5 +138,3 @@ export async function scanAllProjects(
 
   logger.info("[SocialMonitoring] Cron: all scans complete");
 }
-
-
