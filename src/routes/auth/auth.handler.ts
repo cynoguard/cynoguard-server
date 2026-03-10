@@ -51,7 +51,7 @@ export const authenticateUser = async (
         is_onboarded: org.isOnboarded,
         session_token: org.isOnboarded
           ? false
-          : jwt.sign({ uid: user.id, orgId: org.id }, process.env.JWT_SECRET!, {
+          : jwt.sign({ authId:user.firebaseId,uid: user.id, orgId: org.id }, process.env.JWT_SECRET!, {
               expiresIn: "7d",
             }),
       }));
@@ -59,7 +59,7 @@ export const authenticateUser = async (
     } else {
       const orgId = uuidv4();
       const sessionToken = jwt.sign(
-        { uid: user.id, orgId: orgId },
+        {authId:user.firebaseId, uid: user.id, orgId: orgId },
         process.env.JWT_SECRET!,
         { expiresIn: "7d" },
       );

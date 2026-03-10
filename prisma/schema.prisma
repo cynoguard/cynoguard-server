@@ -73,6 +73,10 @@ model Project {
   environment    String       @map("environment") // e.g. production, staging, development
   primary_domain String       @map("primary_domain")
   updatedAt      DateTime     @updatedAt @map("updated_at")
+  socialHandlers   SocialHandler[]
+  keywords         MonitoringKeyword[]
+  mentions         BrandMention[]
+  scanLogs         ScanLog[]
 
   @@unique([name, organizationId]) // Ensure project names are unique within an organization
   @@map("projects")
@@ -83,11 +87,11 @@ model ApiKey {
   projectId  String   @map("project_id")
   keyHash    String   @unique @map("key_hash")
   name       String
-  scopes     String
-  status     String
-  lastUsedAt DateTime @map("last_used_at")
-  expiresAt  DateTime @map("expires_at")
-  createdAt  DateTime @map("created_at")
+  scopes     String?
+  status     String   @default("pending")
+  lastUsedAt DateTime? @map("last_used_at")
+  expiresAt  DateTime? @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   //relation
   project Project @relation(fields: [projectId], references: [id])
@@ -141,3 +145,110 @@ model ChallengeBank {
 
   @@map("challenge_bank")
 }
+
+model SocialHandler {
+  id                   String    @id @default(uuid())
+  projectId            String
+  platform             Platform  @default(X)
+  bearerTokenEncrypted String
+  isValid              Boolean   @default(false)
+  lastValidatedAt      DateTime?
+  validationError      String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, platform])
+  @@index([projectId])
+}
+
+model MonitoringKeyword {
+  id        String   @id @default(uuid())
+  projectId String
+  keyword   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, keyword])
+  @@index([projectId])
+}
+
+model BrandMention {
+  id             String        @id @default(uuid())
+  projectId      String
+  platform       Platform      @default(X)
+  externalId     String
+  content        String
+  authorUsername String
+  authorId       String
+  tweetUrl       String?
+  likeCount      Int           @default(0)
+  retweetCount   Int           @default(0)
+  riskScore      Int           @default(0)
+  riskLevel      RiskLevel     @default(LOW)
+  riskFlags      String[]
+  status         MentionStatus @default(NEW)
+  publishedAt    DateTime?
+  scannedAt      DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  sentiment      Sentiment     @default(NEUTRAL)
+  matchedKeyword String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, externalId])
+  @@index([projectId, riskLevel])
+  @@index([projectId, status])
+  @@index([projectId, sentiment])
+  @@index([projectId, matchedKeyword])
+}
+
+model ScanLog {
+  id            String     @id @default(uuid())
+  projectId     String
+  platform      Platform   @default(X)
+  scanStatus    ScanStatus @default(SUCCESS)
+  mentionsFound Int        @default(0)
+  highRiskCount Int        @default(0)
+  errorMessage  String?
+  scannedAt     DateTime   @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+enum Platform {
+  X
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MentionStatus {
+  NEW
+  VIEWED
+  DISMISSED
+  ARCHIVED
+}
+
+enum ScanStatus {
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+enum Sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+

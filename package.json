@@ -5,9 +5,10 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "start": "dist/server.js",
+    "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -26,12 +27,15 @@
     "firebase": "^12.8.0",
     "firebase-admin": "^13.6.0",
     "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.2.1",
     "pg": "^8.17.2",
     "tsx": "^4.21.0",
+    "twitter-api-v2": "^1.29.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.9",
+    "@types/node-cron": "^3.0.11",
     "prisma": "^7.2.0",
     "typescript": "^5.9.3"
   }
