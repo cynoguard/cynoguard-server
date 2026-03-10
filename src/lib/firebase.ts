@@ -21,3 +21,7 @@ if (!admin.apps.length) {
 // Initialize Firebase
 export const auth = firebaseAdmin.auth();
 export default firebaseAdmin;
+
+console.log("=== FIREBASE ADMIN DEBUG ===");
+console.log("Project ID:", admin.app().options.projectId);
+console.log("Service account:", (admin.app().options.credential as any)?.certificate?.clientEmail);
