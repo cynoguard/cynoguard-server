@@ -175,53 +175,6 @@ export const getDetectionLogs = async (
 };
 
 // ─────────────────────────────────────────────
-// RULES — READ
-// ─────────────────────────────────────────────
-
-export const getProjectApiKeysWithRules = async (projectId: string) => {
-  return await prisma.apiKey.findMany({
-    where: { projectId },
-    include: { rule: true },
-    orderBy: { createdAt: "desc" },
-  });
-};
-
-export const getApiKeyRule = async (keyId: string) => {
-  return await prisma.apiKeyRule.findUnique({
-    where: { apiKeyId: keyId },
-    include: { apiKey: { select: { name: true, status: true } } },
-  });
-};
-
-// ─────────────────────────────────────────────
-// RULES — UPSERT (one key or many)
-// ─────────────────────────────────────────────
-
-export const upsertApiKeyRules = async (
-  keyIds: string[],
-  rules: {
-    strictness: string;
-    persistence: number;
-    signals: Record<string, boolean>;
-    whitelist: { name: string; type: string; value: string }[];
-  }
-) => {
-  // Run all upserts in parallel inside a transaction
-  return await prisma.$transaction(
-    keyIds.map((keyId) =>
-      prisma.apiKeyRule.upsert({
-        where: { apiKeyId: keyId },
-        create: { apiKeyId: keyId, ...rules },
-        update: { ...rules },
-      })
-    )
-  );
-};
-
-
-
-
-// ─────────────────────────────────────────────
 // SINGLE API KEY METRICS
 // ─────────────────────────────────────────────
 
@@ -450,4 +403,173 @@ export const getGeoDistribution = async (projectId: string, range: string) => {
     country: r.countryCode as string,
     count:   r._count.id,
   }));
+};
+
+
+// ─────────────────────────────────────────────
+// HELPERS — safe JSON parsing for Prisma Json fields
+// ─────────────────────────────────────────────
+
+const safeJsonArray = (raw: any): any[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; }
+    catch { return []; }
+  }
+  return [];
+};
+
+const safeJsonObject = (raw: any): Record<string, any> => {
+  if (!raw) return {};
+  if (typeof raw === "object" && !Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try { const p = JSON.parse(raw); return typeof p === "object" && !Array.isArray(p) ? p : {}; }
+    catch { return {}; }
+  }
+  return {};
+};
+
+type WhitelistEntry = { name: string; type: string; value: string };
+
+// ─────────────────────────────────────────────
+// RULES — READ (replace existing versions)
+// ─────────────────────────────────────────────
+
+export const getProjectApiKeysWithRules = async (projectId: string) => {
+  const keys = await prisma.apiKey.findMany({
+    where:   { projectId },
+    include: { rule: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return keys.map(key => ({
+    id:         key.id,
+    name:       key.name,
+    status:     key.status,
+    lastUsedAt: key.lastUsedAt,
+    createdAt:  key.createdAt,
+    rule: key.rule ? {
+      strictness:  key.rule.strictness,
+      persistence: key.rule.persistence,
+      signals:     safeJsonObject(key.rule.signals),
+      whitelist:   safeJsonArray(key.rule.whitelist) as WhitelistEntry[],
+    } : null,
+  }));
+};
+
+export const getApiKeyRule = async (keyId: string) => {
+  const rule = await prisma.apiKeyRule.findUnique({
+    where:   { apiKeyId: keyId },
+    include: { apiKey: { select: { name: true, status: true } } },
+  });
+  if (!rule) return null;
+  return {
+    ...rule,
+    signals:   safeJsonObject(rule.signals),
+    whitelist: safeJsonArray(rule.whitelist) as WhitelistEntry[],
+  };
+};
+
+// ─────────────────────────────────────────────
+// RULES — UPSERT (replace existing version)
+// ─────────────────────────────────────────────
+
+export const upsertApiKeyRules = async (
+  keyIds: string[],
+  rules: {
+    strictness:  string;
+    persistence: number;
+    signals:     Record<string, boolean>;
+    whitelist:   WhitelistEntry[];
+  }
+) => {
+  const { strictness, persistence, signals, whitelist } = rules;
+
+  return await prisma.$transaction(
+    keyIds.map(keyId =>
+      prisma.apiKeyRule.upsert({
+        where:  { apiKeyId: keyId },
+        create: {
+          apiKeyId:    keyId,
+          strictness,
+          persistence,
+          signals:     signals   as any,
+          whitelist:   whitelist as any,
+        },
+        update: {
+          strictness,
+          persistence,
+          signals:   signals   as any,
+          whitelist: whitelist as any,
+        },
+      })
+    )
+  );
+};
+
+// ─────────────────────────────────────────────
+// WHITELIST — ADD (new)
+// ─────────────────────────────────────────────
+
+export const addWhitelistEntry = async (
+  keyIds: string[],
+  entry:  WhitelistEntry
+) => {
+  return await prisma.$transaction(async (tx) => {
+    const results = [];
+
+    for (const keyId of keyIds) {
+      const existing = await tx.apiKeyRule.findUnique({
+        where: { apiKeyId: keyId },
+      });
+
+      if (!existing) {
+        const created = await tx.apiKeyRule.create({
+          data: { apiKeyId: keyId, whitelist: [entry] as any },
+        });
+        results.push(created);
+        continue;
+      }
+
+      const current = safeJsonArray(existing.whitelist) as WhitelistEntry[];
+
+      // Deduplicate
+      if (current.some(e => e.value === entry.value)) {
+        results.push(existing);
+        continue;
+      }
+
+      const updated = await tx.apiKeyRule.update({
+        where: { apiKeyId: keyId },
+        data:  { whitelist: [...current, entry] as any },
+      });
+      results.push(updated);
+    }
+
+    return results;
+  });
+};
+
+// ─────────────────────────────────────────────
+// WHITELIST — REMOVE (new)
+// ─────────────────────────────────────────────
+
+export const removeWhitelistEntry = async (
+  keyId:      string,
+  entryValue: string
+) => {
+  const rule = await prisma.apiKeyRule.findUnique({
+    where: { apiKeyId: keyId },
+  });
+
+  if (!rule) return null;
+
+  const current = safeJsonArray(rule.whitelist) as WhitelistEntry[];
+  const updated = current.filter(e => e.value !== entryValue);
+
+  return await prisma.apiKeyRule.update({
+    where: { apiKeyId: keyId },
+    data:  { whitelist: updated as any },
+  });
 };
