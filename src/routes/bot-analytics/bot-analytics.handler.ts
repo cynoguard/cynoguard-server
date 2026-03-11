@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { getApiKeyMetrics, getApiKeyRule, getDetectionLogs, getGeoDistribution, getOverviewKpis, getProjectApiKeysWithRules, upsertApiKeyRules } from "../../services/bot-analytics.service.js";
+import { addWhitelistEntry, getApiKeyMetrics, getApiKeyRule, getDetectionLogs, getGeoDistribution, getOverviewKpis, getProjectApiKeysWithRules, removeWhitelistEntry, upsertApiKeyRules } from "../../services/bot-analytics.service.js";
 
 // GET /api/v1/bot-management/overview?projectId=xxx&range=7d
 export const getBotOverview = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -86,6 +86,8 @@ export const getApiKeyMetricsHandler = async (request: FastifyRequest, reply: Fa
   }
 };
 
+
+
 // GET /api/v1/bot-management/geo?projectId=xxx&range=7d
 export const getGeoDistributionHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   const { projectId, range = "7d" } = request.query as { projectId: string; range: string };
@@ -94,6 +96,154 @@ export const getGeoDistributionHandler = async (request: FastifyRequest, reply: 
     const data = await getGeoDistribution(projectId, range);
     return reply.code(200).send({ status: "success", data });
   } catch (error) {
+    return reply.code(500).send({ status: "Internal Server Error", error });
+  }
+};
+
+// ── GET /api/v1/bot-management/rules?projectId ─────────────────────
+export const getProjectRulesHandler = async (
+  request: FastifyRequest,
+  reply:   FastifyReply
+) => {
+  const { projectId } = request.query as { projectId?: string };
+
+  if (!projectId) {
+    return reply.code(400).send({
+      status:  "Bad Request",
+      message: "projectId is required",
+    });
+  }
+
+  try {
+    const data = await getProjectApiKeysWithRules(projectId);
+    return reply.code(200).send({ status: "success", data });
+  } catch (error) {
+    request.log.error(error, "getProjectRulesHandler failed");
+    return reply.code(500).send({ status: "Internal Server Error", error });
+  }
+};
+
+// ── GET /api/v1/bot-management/rules/:keyId ────────────────────────
+export const getApiKeyRuleHandler = async (
+  request: FastifyRequest,
+  reply:   FastifyReply
+) => {
+  const { keyId } = request.params as { keyId: string };
+
+  try {
+    const data = await getApiKeyRule(keyId);
+    if (!data) {
+      return reply.code(404).send({ status: "Not Found", message: "No rule found for this key" });
+    }
+    return reply.code(200).send({ status: "success", data });
+  } catch (error) {
+    request.log.error(error, "getApiKeyRuleHandler failed");
+    return reply.code(500).send({ status: "Internal Server Error", error });
+  }
+};
+
+// ── PATCH /api/v1/bot-management/rules ────────────────────────────
+// Body: { keyIds: string[], rules: RulePayload }
+export const upsertApiKeyRulesHandler = async (
+  request: FastifyRequest,
+  reply:   FastifyReply
+) => {
+  const { keyIds, rules } = request.body as {
+    keyIds: string[];
+    rules: {
+      strictness:  string;
+      persistence: number;
+      signals:     Record<string, boolean>;
+      whitelist:   { name: string; type: string; value: string }[];
+    };
+  };
+
+  if (!keyIds?.length) {
+    return reply.code(400).send({
+      status:  "Bad Request",
+      message: "keyIds array is required",
+    });
+  }
+
+  if (!rules) {
+    return reply.code(400).send({
+      status:  "Bad Request",
+      message: "rules payload is required",
+    });
+  }
+
+  try {
+    const data = await upsertApiKeyRules(keyIds, rules);
+    return reply.code(200).send({ status: "success", data });
+  } catch (error) {
+    request.log.error(error, "upsertApiKeyRulesHandler failed");
+    return reply.code(500).send({ status: "Internal Server Error", error });
+  }
+};
+
+// ── POST /api/v1/bot-management/whitelist ─────────────────────────
+// Body: { keyIds: string[], entry: WhitelistEntry }
+export const addWhitelistEntryHandler = async (
+  request: FastifyRequest,
+  reply:   FastifyReply
+) => {
+  const { keyIds, entry } = request.body as {
+    keyIds: string[];
+    entry:  { name: string; type: string; value: string };
+  };
+
+  if (!keyIds?.length) {
+    return reply.code(400).send({
+      status:  "Bad Request",
+      message: "keyIds array is required",
+    });
+  }
+
+  if (!entry?.name || !entry?.value) {
+    return reply.code(400).send({
+      status:  "Bad Request",
+      message: "entry.name and entry.value are required",
+    });
+  }
+
+  try {
+    const data = await addWhitelistEntry(keyIds, entry);
+    return reply.code(200).send({ status: "success", data });
+  } catch (error) {
+    request.log.error(error, "addWhitelistEntryHandler failed");
+    return reply.code(500).send({ status: "Internal Server Error", error });
+  }
+};
+
+// ── DELETE /api/v1/bot-management/whitelist ───────────────────────
+// Body: { keyId: string, entryValue: string }
+export const removeWhitelistEntryHandler = async (
+  request: FastifyRequest,
+  reply:   FastifyReply
+) => {
+  const { keyId, entryValue } = request.body as {
+    keyId:      string;
+    entryValue: string;
+  };
+
+  if (!keyId || !entryValue) {
+    return reply.code(400).send({
+      status:  "Bad Request",
+      message: "keyId and entryValue are required",
+    });
+  }
+
+  try {
+    const data = await removeWhitelistEntry(keyId, entryValue);
+    if (!data) {
+      return reply.code(404).send({
+        status:  "Not Found",
+        message: "Rule not found for this key",
+      });
+    }
+    return reply.code(200).send({ status: "success", data });
+  } catch (error) {
+    request.log.error(error, "removeWhitelistEntryHandler failed");
     return reply.code(500).send({ status: "Internal Server Error", error });
   }
 };
