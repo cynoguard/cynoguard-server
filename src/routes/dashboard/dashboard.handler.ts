@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { generateSecureApiKey } from "../../lib/generateSecureApiKey.js";
+import { generateSecureApiKey } from "../../lib/crypto.js";
 import { createNewApiKey, deleteApiKey, syncApiKeyConnectionStatus, syncApiKeyData, syncApiKeysList, syncOrganizationData, syncProjectsData, updateApiKeyInfo } from "../../services/dashboard.service.js";
 
 export const getOrganizationProjects = async (
@@ -93,7 +93,9 @@ export const getApiKeyStatus = async (request: FastifyRequest, reply: FastifyRep
     return reply.code(404).send({ error: "Not-Found", message: "API key id not found" });
     }
 
-    const data = await syncApiKeyConnectionStatus(id)
+    const data = await syncApiKeyConnectionStatus(id);
+
+    console.log(data);
 
     return reply.code(200).send({ status:"success", message:"API key status fetched successfully", data:{
       connected: data != undefined ? true:false
