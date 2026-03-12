@@ -1,40 +1,172 @@
+import type { DeviceType, RiskLevel } from "@prisma/client";
+import geoip from "geoip-lite";
+import { UAParser } from "ua-parser-js";
 import { prisma } from "../plugins/prisma.js";
 
-export const getBotChallenge = async () => { 
-   const count =await prisma.challengeBank.count();
-   
-   let randomcount = Math.floor(Math.random() * count)
 
-   if(count  === 1){
-     randomcount += 1
-   }
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+
+const resolveGeo = (ip: string): { countryCode: string | null; city: string | null } => {
+  // geoip-lite returns null for localhost / private IPs
+  const geo = geoip.lookup(ip);
+  return {
+    countryCode: geo?.country ?? null,
+    city: geo?.city ?? null,
+  };
+};
+
+const resolveDeviceType = (ua: string): DeviceType => {
+  const parser = new UAParser(ua);
+  const device = parser.getDevice();
+
+  if (!device.type) return "DESKTOP"; // UAParser returns undefined for desktop
+  if (device.type === "mobile") return "MOBILE";
+  if (device.type === "tablet") return "TABLET";
+  // catch common bot UAs
+  if (/bot|crawl|spider|slurp|mediapartners/i.test(ua)) return "BOT";
+  return "UNKNOWN";
+};
+
+const resolveRiskLevel = (score: number): RiskLevel => {
+  if (score < 30) return "HIGH";
+  if (score < 71) return "MEDIUM";
+  return "LOW";
+};
+
+// ─────────────────────────────────────────────
+// CHALLENGE BANK
+// ─────────────────────────────────────────────
+
+export const getBotChallenge = async () => {
+  const count = await prisma.challengeBank.count({where: { isActive: true }});
+
+  if (count === 0) return null;
+
+  let randomCount = Math.floor(Math.random() * count);
 
   return await prisma.challengeBank.findFirst({
-    skip:randomcount,
-    where:{isActive:true}
+    skip: randomCount,
+    where: { isActive: true },
   });
-  
-}
+};
 
-export const updateChallengeStats = async (id:string,isChallengeSuccess:boolean) => {
+// ─────────────────────────────────────────────
+// DETECTION WRITE — called via onResponse hook
+// Populates all flat derived columns at write time
+// so dashboard queries never have to unpack JSON
+// ─────────────────────────────────────────────
 
-  if(isChallengeSuccess){
-    return await prisma.challengeBank.update({where:{id:id},data:{successCount:{increment:1}}});
-  }else
-    return await prisma.challengeBank.update({where:{id:id},data:{failCount:{increment:1}}});
-  }
-  
+export const updateSessionData = async (signals: any) => {
+  const ua: string = signals.signals?.ua ?? "";
+  const ip: string = signals.ipAddress ?? "";
 
-  export const updateSessionData = async(signals:any)=>{
-    // This function can be used to update session data in the database after the response is sent. For example, you can log the bot detection results, update user session info, etc.
-    // Implementation depends on your database schema and requirements.
-    console.log("Updating session data with signals:", signals);
-    console.log(signals);
-    
-    return await prisma.detection.create({data:{...signals}});
-    
-  }
+  const { countryCode, city } = resolveGeo(ip);
+  const deviceType = resolveDeviceType(ua);
+  const riskLevel = resolveRiskLevel(signals.score);
 
-  export const updateDetectionData = async(signals:any)=>{
-     return await prisma.detection.update({where:{id:signals.detectionId},data:{challengeHistory:{push:signals.challengeId}}});
-  }
+  return await prisma.detection.create({
+    data: {
+      id:             signals.id,
+      projectId:      signals.projectId,
+      sessionId:      signals.signals?.sessionId ?? null, // client sends cg_sid cookie value
+      ipAddress:      ip,
+      countryCode,
+      city,
+      userAgent:      ua,
+      deviceType,
+      isHeadless:     signals.signals?.isHeadless ?? false,
+      score:          signals.score,
+      riskLevel,
+      action:         signals.action,
+      isHuman:        signals.isHuman,
+      challengeCount: signals.challengeHistory?.filter(Boolean).length ?? 0,
+      challengeSolved: false, // updated later via updateStats
+      timeToSolve:    0,
+      signals:        signals.signals,
+    },
+  });
+};
+
+// ─────────────────────────────────────────────
+// CHALLENGE ATTEMPT — write timeline entry
+// + update denormalized summary on Detection
+// ─────────────────────────────────────────────
+
+export const updateStats = async (
+  challengeId: string,
+  isChallengeSuccess: boolean,
+  detectionId: string,
+  timeToSolve?: number
+) => {
+  const now = new Date();
+
+  return await prisma.$transaction(async (tx) => {
+    // 1. Write the ChallengeAttempt timeline entry
+    await tx.challengeAttempt.create({
+      data: {
+        detectionId,
+        challengeId,
+        answeredAt:  now,
+        success:     isChallengeSuccess,
+        timeToSolve: timeToSolve ?? null,
+      },
+    });
+
+    // 2. Update ChallengeBank success/fail counters
+    if (isChallengeSuccess) {
+      await tx.challengeBank.update({
+        where: { id: challengeId },
+        data:  { successCount: { increment: 1 } },
+      });
+    } else {
+      await tx.challengeBank.update({
+        where: { id: challengeId },
+        data:  { failCount: { increment: 1 } },
+      });
+    }
+
+    // 3. Update denormalized summary columns on Detection
+    // challengeCount increments on every attempt
+    // challengeSolved + isHuman only flip true on success
+    await tx.detection.update({
+      where: { id: detectionId },
+      data: {
+        challengeCount:  { increment: 1 },
+        ...(isChallengeSuccess && {
+          challengeSolved: true,
+          isHuman:         true,
+          timeToSolve:     timeToSolve ?? 0,
+        }),
+      },
+    });
+  });
+};
+
+// ─────────────────────────────────────────────
+// RETAKE — update Detection with new challenge attempt ref
+// ─────────────────────────────────────────────
+
+export const updateDetectionData = async (signals: any) => {
+  // Write the new issued challenge as an attempt with no answeredAt yet
+  return await prisma.challengeAttempt.create({
+    data: {
+      detectionId: signals.detectionId,
+      challengeId: signals.challengeId,
+      success:     false,
+      // answeredAt left null — will be updated when they answer
+    },
+  });
+};
+
+// ─────────────────────────────────────────────
+// API KEY LOOKUP
+// ─────────────────────────────────────────────
+
+export const getApiKeyWithHashKey = async (hashedKey: string) => {
+  return await prisma.apiKey.findFirst({
+    where: { keyHash: hashedKey },
+  });
+};
+

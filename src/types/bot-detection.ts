@@ -15,6 +15,7 @@ export const verifyHumanBodySchema = Type.Object({
   ts: Type.Number(),
   canvas: Type.Boolean(),
   webgl: Type.Boolean(),
+  sessionId:Type.String(),
   webglFp: Type.Optional(
     Type.Union([
       Type.String(),

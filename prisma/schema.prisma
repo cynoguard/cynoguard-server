@@ -19,6 +19,20 @@ enum UserRole {
   MEMBER
 }
 
+enum DeviceType {
+  DESKTOP
+  MOBILE
+  TABLET
+  BOT
+  UNKNOWN
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model User {
   id         String   @id @default(cuid())
   firebaseId String   @unique @map("firebase_id")
@@ -95,27 +109,93 @@ model ApiKey {
 
   //relation
   project Project @relation(fields: [projectId], references: [id])
+  rule ApiKeyRule?
+
 
   @@map("api_keys")
 }
 
+
 model Detection {
-  id               String   @id @default(uuid())
-  projectId        String   @map("project_id")
-  challengeHistory String[] @map("challenge_history")
-  ipAddress        String   @map("ip_address")
-  score            Int
-  action           String
-  signals          Json
-  isHuman          Boolean  @map("is_human")
-  createdAt        DateTime @default(now()) @map("created_at")
-  timeToSolve      Int      @map("time_to_solve") // all time data store base as millisecond
+  id        String @id @default(uuid())
+  projectId String @map("project_id")
 
-  //relations
-  project Project @relation(fields: [projectId], references: [id])
+  // ── Visitor Identity ──────────────────────
+  sessionId String? @map("session_id")
 
+  // ── Network ───────────────────────────────
+  ipAddress   String  @map("ip_address")
+  countryCode String? @map("country_code")
+  city        String?
+
+  // ── Device & UA ───────────────────────────
+  userAgent  String     @map("user_agent")
+  deviceType DeviceType @default(UNKNOWN) @map("device_type")
+  isHeadless Boolean    @default(false) @map("is_headless")
+
+  // ── Assessment ────────────────────────────
+  score     Int
+  riskLevel RiskLevel @map("risk_level")
+  action    String
+  isHuman   Boolean   @map("is_human")
+
+  // ── Challenge Summary (denormalized) ──────
+  challengeCount  Int     @default(0) @map("challenge_count")
+  challengeSolved Boolean @default(false) @map("challenge_solved")
+
+  // ── Timing ────────────────────────────────
+  timeToSolve Int @default(0) @map("time_to_solve")
+
+  // ── Raw Signals ───────────────────────────
+  signals Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // ── Relations ─────────────────────────────
+  project           Project            @relation(fields: [projectId], references: [id])
+  challengeAttempts ChallengeAttempt[]
+
+  // ── Indexes ───────────────────────────────
+  @@index([projectId, createdAt])
+  @@index([projectId, action])
+  @@index([projectId, countryCode])
+  @@index([projectId, isHuman])
+  @@index([sessionId])
+  @@index([ipAddress])
   @@map("detections")
 }
+
+model ChallengeAttempt {
+  id          String   @id @default(uuid())
+  detectionId String   @map("detection_id")
+  challengeId String   @map("challenge_id")
+
+  issuedAt    DateTime  @default(now()) @map("issued_at")
+  answeredAt  DateTime? @map("answered_at")
+  success     Boolean
+  timeToSolve Int?      @map("time_to_solve")
+
+  detection Detection     @relation(fields: [detectionId], references: [id])
+  challenge ChallengeBank @relation(fields: [challengeId], references: [id])
+
+  @@index([detectionId])
+  @@index([challengeId])
+  @@map("challenge_attempts")
+}
+
+model ChallengeBank {
+  id              String  @id @default(uuid())
+  value           String  @unique
+  successCount    Int     @default(0) @map("success_count")
+  failCount       Int     @default(0) @map("fail_count")
+  isActive        Boolean @default(true) @map("is_active")
+  difficultyLevel Int     @default(0) @map("difficulty_level")
+
+  attempts ChallengeAttempt[]
+
+  @@map("challenge_bank")
+}
+
 
 model OrganizationMember {
   id             String @id @default(uuid())
@@ -132,18 +212,19 @@ model OrganizationMember {
   @@map("organization_members")
 }
 
-model ChallengeBank {
-  id              String  @id @default(uuid())
-  value           String  @unique
-  successCount    Int     @default(0) @map("success_count")
-  failCount       Int     @default(0) @map("fail_count")
-  isActive        Boolean @default(true) @map("is_active")
-  // 1: Easy (Short sentences)
-  // 2: Medium (Standard)
-  // 3: Hard (Complex logic/punctuation)
-  difficultyLevel Int     @default(0) @map("difficulty_level")
+model ApiKeyRule {
+  id          String   @id @default(uuid())
+  apiKeyId    String   @unique @map("api_key_id")
+  strictness  String   @default("balanced") // "passive" | "balanced" | "aggressive"
+  persistence Int      @default(48)          // hours
+  signals     Json     @default("{}")        // { headless: true, hardwareMismatch: true, mouseAnalysis: true }
+  whitelist   Json     @default("[]")        // [{ name, type, value }]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  @@map("challenge_bank")
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id])
+
+  @@map("api_key_rules")
 }
 
 model SocialHandler {

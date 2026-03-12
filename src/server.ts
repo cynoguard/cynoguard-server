@@ -7,6 +7,7 @@ import app from "./app.js";
 import { prisma } from "./plugins/prisma.js";
 import { swaggerOption, swaggerUiOptions } from "./plugins/swagger.js";
 import authRoutes from "./routes/auth/index.js";
+import botAnalyticsRoute from "./routes/bot-analytics/index.js";
 import dashboardRoutes from "./routes/dashboard/index.js";
 import onboardingRoutes from "./routes/onboarding/index.js";
 import botDetectionRoutes from "./routes/v1/bot-detection/index.js";

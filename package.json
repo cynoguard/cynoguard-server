@@ -23,9 +23,12 @@
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@sinclair/typebox": "^0.34.47",
+    "buffer": "^6.0.3",
+    "date-fns": "^4.1.0",
     "fastify": "^5.7.1",
     "firebase": "^12.8.0",
     "firebase-admin": "^13.6.0",
+    "geoip-lite": "^2.0.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.2.1",
     "pg": "^8.17.2",
@@ -34,6 +37,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@types/geoip-lite": "^1.4.4",
     "@types/node": "^25.0.9",
     "@types/node-cron": "^3.0.11",
     "prisma": "^7.2.0",
