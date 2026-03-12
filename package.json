@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "start": "dist/server.js",
-    "dev": "tsx watch src/server.ts"
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "postinstall": "prisma generate",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -28,15 +30,16 @@
     "firebase-admin": "^13.6.0",
     "geoip-lite": "^2.0.0",
     "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.2.1",
     "pg": "^8.17.2",
     "tsx": "^4.21.0",
-    "ua-parser-js": "^2.0.9",
+    "twitter-api-v2": "^1.29.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/geoip-lite": "^1.4.4",
     "@types/node": "^25.0.9",
-    "@types/ua-parser-js": "^0.7.39",
+    "@types/node-cron": "^3.0.11",
     "prisma": "^7.2.0",
     "typescript": "^5.9.3"
   }

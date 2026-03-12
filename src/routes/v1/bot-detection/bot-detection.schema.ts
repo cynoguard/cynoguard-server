@@ -90,10 +90,21 @@ export const reTakeChallengeSchema = {
           condition: Type.Number(),
           token:     Type.String(),
         }),
-      }),
-    }),
-    500: Type.Object({ status: Type.String(), message: Type.Optional(Type.String()), error: Type.String() }),
-    404: Type.Object({ status: Type.String(), message: Type.Optional(Type.String()), error: Type.String() }),
-    401: Type.Object({ status: Type.String(), message: Type.Optional(Type.String()), error: Type.String() }),
-  },
-};
+        500:Type.Object({
+            status:Type.String(),
+            message:Type.Optional(Type.String()),
+            error:Type.String(),
+        }),
+        404:Type.Object({
+            status:Type.String(),
+            message:Type.Optional(Type.String()),
+            error:Type.String(),
+           
+        }),
+        401:Type.Object({
+            status:Type.String(),
+            message:Type.Optional(Type.String()),
+            error:Type.String(),
+        }),
+    }
+}

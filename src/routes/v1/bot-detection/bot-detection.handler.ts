@@ -176,23 +176,8 @@ export const verifyBotSessionToken = async (request: FastifyRequest, reply: Fast
       return reply.code(401).send({ status: "token-not-valid", message: "Token is expired or not valid" });
     }
 
-    return reply.code(200).send({ status: "session-verified", message: "Session verified" });
-  } catch (error) {
-    return reply.code(500).send({ status: "Internal Server Error", message: "", error });
-  }
-};
-
-export const reTakeBotChallenge = async (request: FastifyRequest, reply: FastifyReply) => {
-  const token = request.headers.authorization?.replace("Bearer ", "").trim();
-
-  try {
-    if (!token) {
-      return reply.code(404).send({
-        status: "Bad Request",
-        message: "Missing or invalid token",
-        error: "Token is missing or malformed",
-      });
-    }
+        request.auditData  = {detectionId:decodedToken.did,challengeId:challengeData?.id || null};
+        //  const cookieToken = jwt.sign({assessment:"passed"}, process.env.JWT_SECRET as string, {expiresIn:"3d"})
 
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET as string) as { did: string };
 
