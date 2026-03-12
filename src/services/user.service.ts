@@ -41,18 +41,25 @@ export const checkAssociatedOrganizations = async (userId: string) => {
   return memberships.map((memberships) => memberships.organization);
 };
 
-
-export const getOrganizationMember = async (userId: string, orgName: string) => {
+export const getOrganizationMember = async (uid: string, orgName: string) => {
   return await prisma.organizationMember.findFirst({
-    where:{
-      userId:userId,
-      organization:{
-        name:orgName,
-      }
+    where: {
+      user:         { firebaseId: uid },   // uid here is Firebase UID from token
+      organization: { name: orgName },
     },
-    select:{
-      organization:true,
-      user:true,
-    }
+    select: {
+      user:         true,
+      organization: {
+        include: {
+          projects: {          // return projects so AppInitializer can set activeProjectId
+            select: {
+              id:   true,
+              name: true,
+            },
+            take: 10,
+          },
+        },
+      },
+    },
   });
-}
+};

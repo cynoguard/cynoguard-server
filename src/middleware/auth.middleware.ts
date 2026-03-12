@@ -19,6 +19,7 @@ export const apiKeyValidation = async (request:FastifyRequest,reply:FastifyReply
         }
         
         request.projectId = apiKeyRecord.projectId;
+        request.apiKeyId = apiKeyRecord.id;
 
     } catch (error:any) {
        return reply.code(500).send({ error: "Internal Server Error", message: error.message });

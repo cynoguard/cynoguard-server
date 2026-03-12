@@ -4,104 +4,200 @@ import { v4 as uuidv4 } from "uuid";
 import { getBotChallenge, updateStats } from "../../../services/bot-detection.service.js";
 import { verifyJWT } from "../../../services/global.service.js";
 import type { verifyChallengeBodyType, verifyHumanBodyType, verifyHumanResponseType } from "../../../types/bot-detection.js";
-
 export const verifyHuman = async (
   request: FastifyRequest<{ Body: verifyHumanBodyType }>,
   reply: FastifyReply
 ) => {
   const signals: verifyHumanBodyType = request.body;
+  const { cyno } = request;
+  const rule        = cyno?.rule;
+  const strictness  = rule?.strictness  ?? "balanced";
+  const persistence = rule?.persistence ?? 48;
+  const ruleSignals = rule?.signals     ?? {};
 
   try {
+    // ── WHITELISTED — skip all detection ──────────────────
+    if (cyno?.whitelisted) {
+      const detectionId = uuidv4();
+
+      const cookieToken = jwt.sign(
+        {
+          assessment:   "passed",
+          whitelisted:  true,
+          matchedEntry: cyno.matchedEntry?.name ?? "unknown",
+          iat_ms:       Date.now(),
+        },
+        process.env.JWT_SECRET as string,
+        { expiresIn: `${persistence}h` }
+      );
+
+      // Still audit the whitelisted visit for dashboard visibility
+      request.auditData = {
+        id:               detectionId,
+        projectId:        request.projectId,
+        sessionId:        signals.sessionId ?? null,
+        ipAddress:        request.ip,
+        score:            100,
+        action:           "allow",
+        signals,
+        isHuman:          true,
+        timeToSolve:      0,
+        challengeDataId:  null,
+        challengeIssuedAt: null,
+      };
+
+      return reply.code(200).send({
+        status:  "success",
+        message: "detection completed",
+        request_id: detectionId,
+        version: "v1.0",
+        data: {
+          assessment: {
+            score:      100,
+            risk_level: "low",
+            action:     "allow",
+          },
+          context: {
+            ip:           request.ip,
+            ua_fingerprint: signals.ua,
+            timestamp:    new Date().toISOString(),
+          },
+          cookies: {
+            token: cookieToken,
+          },
+          whitelisted:   true,
+          matched_entry: cyno.matchedEntry?.name,
+        },
+      });
+    }
+
+    // ── SCORING ───────────────────────────────────────────
     let score = 100;
 
+    // Only apply signal deductions if that signal is enabled in rule
+    // (defaults to true if no rule configured)
+    const useHeadless         = ruleSignals.headless         !== false;
+    const useHardwareMismatch = ruleSignals.hardwareMismatch !== false;
+    const useMouseAnalysis    = ruleSignals.mouseAnalysis    !== false;
+
     // TIER 1: Heuristics
-    if (signals.webdriver)                    score -= 70;
-    if (!signals.webgl || !signals.canvas)    score -= 30;
-    if (signals.hardwareConcurrency < 2)      score -= 20;
-    if (signals.isHeadless)                   score -= 20; // was being collected but never scored
+    if (signals.webdriver)                          score -= 70;
+    if (!signals.webgl || !signals.canvas)          score -= 30;
+    if (useHardwareMismatch && signals.hardwareConcurrency < 2) score -= 20;
+    if (useHeadless && signals.isHeadless)          score -= 20;
+    // mouseAnalysis placeholder — wire up when mouse data collected
+    // if (useMouseAnalysis && signals.linearMousePath) score -= 15;
 
     // Clamp to 0
     score = Math.max(0, score);
 
     const riskLevel = score < 30 ? "high" : score < 71 ? "medium" : "low";
 
-    let actionStatus = "allow";
-    if (score < 30)       actionStatus = "challenge";
-    else if (score < 71)  actionStatus = "uncertain";
+    // ── ACTION THRESHOLDS based on strictness ─────────────
+    //
+    //  passive:     always allow, never challenge (log only)
+    //  balanced:    challenge < 30, uncertain < 71  (existing behavior)
+    //  aggressive:  challenge < 60, uncertain < 80
+    //
+    let actionStatus: "allow" | "challenge" | "uncertain";
 
-    const detectionId = uuidv4();
-    let challengeDataId: string | null = null;
-    let challengeIssuedAt: number | null = null;
+    if (strictness === "passive") {
+      // Log everything, interrupt nothing
+      actionStatus = "allow";
+    } else if (strictness === "aggressive") {
+      if      (score < 20) actionStatus = "challenge";
+      else if (score < 80) actionStatus = "uncertain";
+      else                 actionStatus = "allow";
+    } else {
+      // balanced (default)
+      if      (score < 30) actionStatus = "challenge";
+      else if (score < 71) actionStatus = "uncertain";
+      else                 actionStatus = "allow";
+    }
+
+    const detectionId       = uuidv4();
+    let challengeDataId:    string | null = null;
+    let challengeIssuedAt:  number | null = null;
 
     const response: verifyHumanResponseType = {
-      status: "success",
+      status:  "success",
       message: "detection completed",
-      request_id: detectionId,  // was empty string before — use detectionId
+      request_id: detectionId,
       version: "v1.0",
       data: {
         assessment: {
           score,
           risk_level: riskLevel,
-          action: actionStatus,
+          action:     actionStatus,
         },
         context: {
-          ip: request.ip,
+          ip:             request.ip,
           ua_fingerprint: signals.ua,
-          timestamp: new Date().toISOString(),
+          timestamp:      new Date().toISOString(),
         },
       },
     };
 
     if (actionStatus === "challenge" || actionStatus === "uncertain") {
-      const challengeData = await getBotChallenge();
-      const valueArr = challengeData?.value.split(" ") || [];
-      const randomPosition = Math.floor(Math.random() * (valueArr.length)) + 1;
+      const challengeData   = await getBotChallenge();
+      const valueArr        = challengeData?.value.split(" ") || [];
+      const randomPosition  = Math.floor(Math.random() * valueArr.length) + 1;
 
-      // Embed issuedAt in token so handler can calculate timeToSolve on verify
       challengeIssuedAt = Date.now();
+
       const token = jwt.sign(
         {
-          did: detectionId,
-          cid: challengeData?.id,
+          did:    detectionId,
+          cid:    challengeData?.id,
           answer: valueArr[randomPosition - 1],
-          iat_ms: challengeIssuedAt, // millisecond precision issued time
+          iat_ms: challengeIssuedAt,
         },
         process.env.JWT_SECRET as string,
         { expiresIn: "5m" }
       );
 
       challengeDataId = challengeData?.id || null;
+
       response.data.challenge = {
-        context: challengeData?.value || "",
+        context:   challengeData?.value || "",
         condition: randomPosition,
         token,
       };
     } else {
-      // Low risk — allow directly, set verified cookie
+      // Allow — issue verified session cookie
+      // Persistence comes from rule (hours → seconds for jwt expiresIn)
       response.data.cookies = {
-        token: jwt.sign({ assessment: "passed" }, process.env.JWT_SECRET as string, { expiresIn: "3d" }),
+        token: jwt.sign(
+          { assessment: "passed", iat_ms: Date.now() },
+          process.env.JWT_SECRET as string,
+          { expiresIn: `${persistence}h` }
+        ),
       };
     }
 
-    // Build auditData aligned with new Detection schema
+    // ── AUDIT ─────────────────────────────────────────────
     request.auditData = {
-      id:          detectionId,
-      projectId:   request.projectId,
-      sessionId:   signals.sessionId ?? null, // client now sends cg_sid
-      ipAddress:   request.ip,
+      id:               detectionId,
+      projectId:        request.projectId,
+      sessionId:        signals.sessionId ?? null,
+      ipAddress:        request.ip,
       score,
-      action:      actionStatus,
-      signals,                               // full raw blob kept for ML
-      isHuman:     riskLevel === "low",
-      timeToSolve: 0,
-      // challengeDataId passed so updateSessionData can write first ChallengeAttempt
+      action:           actionStatus,
+      signals,
+      isHuman:          actionStatus === "allow",
+      timeToSolve:      0,
       challengeDataId,
       challengeIssuedAt,
     };
 
     return reply.code(200).send(response);
+
   } catch (error) {
-    return reply.code(500).send({ status: "Internal Server Error", message: "", error });
+    return reply.code(500).send({
+      status:  "Internal Server Error",
+      message: "",
+      error,
+    });
   }
 };
 
