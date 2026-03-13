@@ -84,13 +84,14 @@ export const syncApiKeysList = async (projectId:string)=>{
 }
 
 export const updateApiKeyInfo = async (id:string,status:string)=>{
+  const value  = status === "connected"?true:false
   return await prisma.apiKey.update({
     where:{
       id:id
     },
     data:{
       status:status,
-      connectionVerified:status === "connected"?true:false,
+      connectionVerified:value,
     },
   });
 
