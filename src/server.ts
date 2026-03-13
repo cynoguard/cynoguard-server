@@ -12,7 +12,7 @@ import dashboardRoutes from "./routes/dashboard/index.js";
 import onboardingRoutes from "./routes/onboarding/index.js";
 import botDetectionRoutes from "./routes/v1/bot-detection/index.js";
 import socialMonitoringRoutes from "./routes/v1/social-monitoring/index.js";
-import test from "./test/index.js";
+// import test from "./test/index.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -50,7 +50,7 @@ fastify.register(botAnalyticsRoute);
 fastify.register(socialMonitoringRoutes);
 
 //test file
-fastify.register(test);
+// fastify.register(test);
 
 const start = async () => {
   try {
