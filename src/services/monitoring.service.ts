@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type { FastifyBaseLogger } from "fastify";
+import { findMatchedKeyword, scoreContent } from "./risk-scoring.service.js";
 import { fetchMentions } from "./x.service.js";
-import { scoreContent, findMatchedKeyword } from "./risk-scoring.service.js";
 
 export interface ScanResult {
   projectId: string;
