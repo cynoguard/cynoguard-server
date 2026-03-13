@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 import crypto from 'node:crypto';
+
 export const generateSecureApiKey = () => {
   // 1. Create the raw key (The secret the user will use)
   const apiKey = crypto.randomBytes(32).toString('hex');

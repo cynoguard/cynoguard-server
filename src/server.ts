@@ -11,8 +11,8 @@ import botAnalyticsRoute from "./routes/bot-analytics/index.js";
 import dashboardRoutes from "./routes/dashboard/index.js";
 import onboardingRoutes from "./routes/onboarding/index.js";
 import botDetectionRoutes from "./routes/v1/bot-detection/index.js";
-import { startMonitoringScheduler } from "./scheduler/monitoring.scheduler.js";
 import socialMonitoringRoutes from "./routes/v1/social-monitoring/index.js";
+// import test from "./test/index.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -39,8 +39,6 @@ await fastify.register(cors, {
 
 fastify.decorate("prisma", prisma);
 
-
-
 fastify.register(fastifySwagger, swaggerOption);
 fastify.register(fastifySwaggerUi, swaggerUiOptions);
 fastify.register(app);
@@ -48,16 +46,16 @@ fastify.register(authRoutes);
 fastify.register(botDetectionRoutes);
 fastify.register(onboardingRoutes);
 fastify.register(dashboardRoutes);
+fastify.register(botAnalyticsRoute);
 fastify.register(socialMonitoringRoutes);
 
-
+//test file
+// fastify.register(test);
 
 const start = async () => {
   try {
     const port = 4000;
     await fastify.listen({ port: port, host: "0.0.0.0" });
-    startMonitoringScheduler(fastify.prisma, fastify.log);
-
   } catch (error) {
     fastify.log.error(error);
     process.exit(1);
