@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth/index.js";
 import botAnalyticsRoute from "./routes/bot-analytics/index.js";
 import dashboardRoutes from "./routes/dashboard/index.js";
 import onboardingRoutes from "./routes/onboarding/index.js";
+import settingsRoutes from "./routes/settings/index.js";
 import botDetectionRoutes from "./routes/v1/bot-detection/index.js";
 import socialMonitoringRoutes from "./routes/v1/social-monitoring/index.js";
 // import test from "./test/index.js";
@@ -48,6 +49,7 @@ fastify.register(onboardingRoutes);
 fastify.register(dashboardRoutes);
 fastify.register(botAnalyticsRoute);
 fastify.register(socialMonitoringRoutes);
+fastify.register(settingsRoutes);
 
 //test file
 // fastify.register(test);
