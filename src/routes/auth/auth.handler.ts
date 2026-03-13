@@ -84,7 +84,7 @@ export const authenticateUser = async (
 
 
 export const getAuthUser = async(request:FastifyRequest,reply:FastifyReply)=>{
-  const token = request.headers.authorization?.replace("Bearer ", "").split(" ")[1];
+  const token = request.headers.authorization?.split(" ")[1];
   const {orgName} = request.query as { orgName: string };
  try {
 
