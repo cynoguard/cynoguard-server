@@ -37,7 +37,7 @@ import { prisma } from "../plugins/prisma.js";
 
       const project = await tx.project.create({data:{
          name:data.projectName,
-         primary_domain:data.primaryDomain,
+         primaryDomain:data.primaryDomain,
          environment:data.environmentType,
          industry:data?.industryNiche,
          organization:{

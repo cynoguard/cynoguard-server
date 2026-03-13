@@ -7,8 +7,6 @@ import { updateOnboardingData } from "../../services/onboarding.service.js";
 export const syncOnboardingData = async(request:FastifyRequest,reply:FastifyReply)=>{
   const data = request.body;
   const token = request.headers.authorization?.split(" ")[1];
-  console.log("Token from URL:", token?.substring(0, 100));
-console.log("Token parts:", token?.split(".").length);
   try {
     if(!token){
        return reply.code(404).send({ status: "Not-Found" , message: "Token not found" });
@@ -21,15 +19,7 @@ console.log("Token parts:", token?.split(".").length);
 
     }
 
-
-    console.log("jwt payload uid:", uid);       // your internal DB uuid
-    console.log("jwt payload authId:", authId);
-
-
     const customToken = await auth.createCustomToken(authId);
-
-
-console.log("Token preview:", customToken.substring(0, 80));
 
     const {org,project} = await updateOnboardingData(data,uid,orgId);
     
