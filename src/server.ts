@@ -31,8 +31,8 @@ const allowedOrigins = [
   "http://localhost:3002",
   "http://localhost:3003",
   "https://console.cynoguard.com",
-  "http://cdn.cynoguard.com",
-  "http://cynoguard.com",
+  "https://cdn.cynoguard.com",
+  "https://cynoguard.com",
 ];
 
 await fastify.register(cors, {
