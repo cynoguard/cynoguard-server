@@ -13,6 +13,7 @@ import onboardingRoutes from "./routes/onboarding/index.js";
 import settingsRoutes from "./routes/settings/index.js";
 import botDetectionRoutes from "./routes/v1/bot-detection/index.js";
 import socialMonitoringRoutes from "./routes/v1/social-monitoring/index.js";
+import test from "./test/index.js";
 // import test from "./test/index.js";
 
 declare module "fastify" {
@@ -53,6 +54,7 @@ fastify.register(dashboardRoutes);
 fastify.register(botAnalyticsRoute);
 fastify.register(socialMonitoringRoutes);
 fastify.register(settingsRoutes);
+fastify.register(test);
 
 //test file
 // fastify.register(test);
