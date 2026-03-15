@@ -331,3 +331,56 @@ export const reTakeBotChallenge = async (request: FastifyRequest, reply: Fastify
 };
 
 
+
+
+
+import type { FastifyInstance } from "fastify";
+import { getOrgOverview, getProjectOverview } from "../../../services/dashboard.service.js";
+import type { TOrgParams, TProjectParams } from "../../dashboard/dashboard.schema.js";
+
+
+function userId(req: FastifyRequest): string {
+  return (req as any).userId as string;
+}
+
+async function assertOrgMember(fastify: FastifyInstance, organizationId: string, uid: string) {
+  const member = await fastify.prisma.organizationMember.findFirst({
+    where: { organizationId, userId: uid },
+  });
+  return !!member;
+}
+
+async function assertProjectMember(fastify: FastifyInstance, projectId: string, uid: string) {
+  const project = await fastify.prisma.project.findUnique({
+    where:  { id: projectId },
+    select: { organizationId: true },
+  });
+  if (!project) return false;
+  return assertOrgMember(fastify, project.organizationId, uid);
+}
+
+export async function getOrgDashboard(
+  fastify:  FastifyInstance,
+  request:  FastifyRequest<{ Params: TOrgParams }>,
+  reply:    FastifyReply
+) {
+  const { orgId } = request.params;
+  if (!(await assertOrgMember(fastify, orgId, userId(request))))
+    return reply.status(403).send({ error: "Forbidden" });
+
+  const data = await getOrgOverview(fastify.prisma, orgId);
+  return reply.send(data);
+}
+
+export async function getProjectDashboard(
+  fastify:  FastifyInstance,
+  request:  FastifyRequest<{ Params: TProjectParams }>,
+  reply:    FastifyReply
+) {
+  const { projectId } = request.params as any;
+  if (!(await assertProjectMember(fastify, projectId, userId(request))))
+    return reply.status(403).send({ error: "Forbidden" });
+
+  const data = await getProjectOverview(fastify.prisma, projectId);
+  return reply.send(data);
+}
