@@ -10,7 +10,8 @@ const authRoutes = async (fastify: FastifyInstance, options: FastifyPluginOption
 
   fastify.get("/api/auth/user",async (request, reply) => {
     return await getAuthUser(request,reply);
-  })
+  });
+
 }
 
 

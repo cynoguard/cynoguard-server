@@ -1,7 +1,7 @@
-// import type { FastifyInstance, FastifyPluginOptions } from "fastify";
-// import { prisma } from "../plugins/prisma.js";
-
-// const test  = async(fastify:FastifyInstance,options:FastifyPluginOptions)=>{
+import type { FastifyInstance, FastifyPluginOptions } from "fastify";
+import { readFile } from "node:fs/promises";
+import { prisma } from "../plugins/prisma.js";
+const test  = async(fastify:FastifyInstance,options:FastifyPluginOptions)=>{
 // fastify.get("/test/db",async(request,reply)=>{
 //     const org = await prisma.organization.create({
 //     data: {
@@ -22,7 +22,25 @@
 //     },
 //   });
 // })
+  fastify.post("/api/auth/load/prod",async (request, reply) => {
+    
+    const file = await readFile("./challenge.json","utf-8");
+    const d = JSON.parse(file);
+    await prisma.challengeBank.createMany({
+      data:{
+        value:d,
+      },
+      skipDuplicates:true
+    });
 
-// };
+    return reply.code(200).send({status:"success"});
+  });
+   fastify.get("/api/auth/load/prod",async (request, reply) => {
+    const data = await prisma.challengeBank.findMany(
+   );
 
-// export default test;
+   return reply.code(200).send({data:data});
+  });
+};
+
+export default test;
