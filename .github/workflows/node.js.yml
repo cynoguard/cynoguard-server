@@ -36,11 +36,8 @@ jobs:
           echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
 
       #  Prisma      
-      - name: Prisma generate & migrate
-        run: |
-          export $(grep -v '^#' .env | xargs)
-          npx prisma generate
-          npx prisma migrate deploy
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
       
 
       # Start or reload PM2 safely (handles first deploy + subsequent deploys)
