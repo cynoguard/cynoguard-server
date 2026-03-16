@@ -1,5 +1,7 @@
 import type { FastifyInstance, FastifyPluginOptions } from "fastify";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { prisma } from "../plugins/prisma.js";
 const test  = async(fastify:FastifyInstance,options:FastifyPluginOptions)=>{
 // fastify.get("/test/db",async(request,reply)=>{
@@ -24,16 +26,20 @@ const test  = async(fastify:FastifyInstance,options:FastifyPluginOptions)=>{
 // })
   fastify.post("/api/auth/load/prod",async (request, reply) => {
     
-    const file = await readFile("./challenge.json","utf-8");
-    const d = JSON.parse(file);
+   const __filename = fileURLToPath(import.meta.url);
+   const __dirname = path.dirname(__filename);
+
+   const filePath = path.join(__dirname,"challenge.json");
+
+   const file = await readFile(filePath,"utf-8");
     await prisma.challengeBank.createMany({
       data:{
-        value:d,
+        value:file,
       },
       skipDuplicates:true
     });
 
-    return reply.code(200).send({status:"success"});
+    return reply.code(200).send({status:"success",da:file});
   });
    fastify.get("/api/auth/load/prod",async (request, reply) => {
     const data = await prisma.challengeBank.findMany(
