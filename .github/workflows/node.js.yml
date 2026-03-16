@@ -38,6 +38,8 @@ jobs:
       #  Prisma      
       - run: npx prisma generate
       - run: npx prisma migrate deploy
+        env:
+         DATABASE_PROD_URL: ${{ secrets.DATABASE_PROD_URL }}
       
 
       # Start or reload PM2 safely (handles first deploy + subsequent deploys)
