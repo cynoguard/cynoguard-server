@@ -35,10 +35,19 @@ jobs:
           touch .env
           echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
 
-      #  Prisma      
+      # Download AWS RDS SSL Certificate
+      - name: Download AWS RDS Certificate
+        run: |
+          if [ ! -f /home/ubuntu/rds-ca.pem ]; then
+            wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -O /home/ubuntu/rds-ca.pem
+            echo "RDS cert downloaded ✅"
+          else
+            echo "RDS cert already exists ✅"
+          fi
+
+      # Prisma      
       - run: npx prisma generate
       - run: npx prisma migrate deploy
-      
 
       # Start or reload PM2 safely (handles first deploy + subsequent deploys)
       - name: Start or Reload PM2
