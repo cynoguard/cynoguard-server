@@ -4,6 +4,9 @@ import "dotenv/config";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_PROD_URL!,
+  ssl: {
+    rejectUnauthorized: false, // This bypasses the "self-signed certificate" error
+  },
 });
 const prisma = new PrismaClient({ adapter });
 
