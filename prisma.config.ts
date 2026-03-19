@@ -9,6 +9,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env.DATABASE_PROD_URL!,
+    url: process.env.DATABASE_PROD_URL! + "?sslmode=require",
   },
 });
