@@ -5,10 +5,10 @@ import "dotenv/config";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_PROD_URL!,
-  // ssl: {
-  //   rejectUnauthorized: true,
-  //   ca: readFileSync('/home/ubuntu/rds-ca.pem').toString(),
-  // }
+  ssl: {
+    rejectUnauthorized: true,
+    ca: readFileSync('/home/ubuntu/rds-ca.pem').toString(),
+  }
 });
 
 export const prisma = new PrismaClient({ adapter });

@@ -119,6 +119,7 @@ model Project {
 
   @@unique([name, organizationId])
   @@map("projects")
+  watchlistEntries WatchlistEntry[]
 }
 
 // ─── Bot Detection ────────────────────────────────────────────────────────────
@@ -295,10 +296,6 @@ model ScanLog {
   @@index([projectId])
   @@map("scan_logs")
 }
-
-// Add to Project model:
-watchlistEntries WatchlistEntry[]
-
 model WatchlistEntry {
   id                       String    @id @default(uuid())
   projectId                String    @map("project_id")
