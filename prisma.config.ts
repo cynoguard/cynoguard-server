@@ -9,17 +9,18 @@ function ensureSslMode(connectionString: string): string {
   return parsed.toString();
 }
 
-const databaseUrl = process.env.DATABASE_PROD_URL;
+const databaseUrl =
+  process.env.DATABASE_PROD_URL ??
+  process.env.DATABASE_URL ??
+  "postgresql://postgres:postgres@localhost:5432/postgres?schema=public";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
-  // Only set datasource if URL is available (not needed for `prisma generate`)
-  ...(databaseUrl ? {
-    datasource: {
-      url: ensureSslMode(databaseUrl),
-    },
-  } : {}),
+  // Always provide datasource URL so Prisma schema validation succeeds in CI.
+  datasource: {
+    url: ensureSslMode(databaseUrl),
+  },
 });
