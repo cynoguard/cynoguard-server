@@ -3,6 +3,7 @@
 // Register in your main Fastify app: fastify.register(socialMonitoringRoutes)
 
 import type { FastifyInstance } from "fastify";
+import { verifyFirebaseToken } from "../../../services/firebase.service.js";
 import {
   addKeyword,
   deleteKeyword,
@@ -16,17 +17,66 @@ import {
 } from "./social-monitoring.handler.js";
 import {
   AddKeywordBody,
-  KeywordParams, MentionParams,
+  KeywordParams,
+  MentionParams,
   MentionsQuerystring,
   ProjectParams,
   ToggleKeywordBody,
   UpdateMentionBody,
 } from "./social-monitoring.schema.js";
 
+// ─── Auth preHandler ──────────────────────────────────────────────
+// Decodes the Firebase/JWT token from the Authorization header
+// and sets request.userId so assertMember() can verify access.
+async function authPreHandler(request: any, reply: any) {
+  const authHeader = request.headers.authorization;
+
+  if (!authHeader) {
+    return reply.status(401).send({ error: "Unauthorized", message: "No authorization header" });
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+
+  try {
+    // Try Firebase token first
+    const decoded = await verifyFirebaseToken(token);
+    if (decoded?.uid) {
+      // Look up the internal DB user id from firebaseId
+      const user = await (request.server as any).prisma.user.findUnique({
+        where: { firebaseId: decoded.uid },
+        select: { id: true },
+      });
+      if (!user) {
+        return reply.status(401).send({ error: "Unauthorized", message: "User not found" });
+      }
+      request.userId = user.id;
+      return;
+    }
+  } catch {
+    // Not a Firebase token — try JWT below
+  }
+
+  try {
+    // Try internal JWT (used after onboarding)
+    const jwt = await import("jsonwebtoken");
+    const decoded = jwt.default.verify(token, process.env.JWT_SECRET!) as any;
+    if (decoded?.uid) {
+      request.userId = decoded.uid;
+      return;
+    }
+  } catch {
+    return reply.status(401).send({ error: "Unauthorized", message: "Invalid token" });
+  }
+}
+
+// ─── Routes ───────────────────────────────────────────────────────
+
 export default async function socialMonitoringRoutes(fastify: FastifyInstance) {
 
-  // ── Keywords ────────────────────────────────────────────────────────────────
+  // Apply auth to all social monitoring routes
+  fastify.addHook("preHandler", authPreHandler);
 
+  // ── Keywords ──────────────────────────────────────────────────
   fastify.get(
     "/api/v1/projects/:projectId/keywords",
     { schema: { tags: ["Social Monitoring"], params: ProjectParams } },
@@ -51,7 +101,7 @@ export default async function socialMonitoringRoutes(fastify: FastifyInstance) {
     (req, rep) => deleteKeyword(fastify, req as any, rep)
   );
 
-  // ── Mentions ────────────────────────────────────────────────────────────────
+  // ── Mentions ──────────────────────────────────────────────────
 
   fastify.get(
     "/api/v1/projects/:projectId/mentions",
@@ -59,8 +109,7 @@ export default async function socialMonitoringRoutes(fastify: FastifyInstance) {
     (req, rep) => listMentions(fastify, req as any, rep)
   );
 
-  // NOTE: /mentions/stats must be registered BEFORE /mentions/:mentionId
-  // so Fastify doesn't match "stats" as a mentionId param.
+  // NOTE: stats MUST be registered before /:mentionId
   fastify.get(
     "/api/v1/projects/:projectId/mentions/stats",
     { schema: { tags: ["Social Monitoring"], params: ProjectParams } },
@@ -84,27 +133,4 @@ export default async function socialMonitoringRoutes(fastify: FastifyInstance) {
     { schema: { tags: ["Social Monitoring"], params: ProjectParams } },
     (req, rep) => triggerScan(fastify, req as any, rep)
   );
-}
-
-// ─── Scheduler ────────────────────────────────────────────────────────────────
-// Call startMonitoringScheduler(prisma, logger) once at app startup.
-
-import type { PrismaClient } from "@prisma/client";
-import type { FastifyBaseLogger } from "fastify";
-import cron from "node-cron";
-import { scanAllProjects } from "../../../services/monitoring.service.js";
-
-export function startMonitoringScheduler(prisma: PrismaClient, logger: FastifyBaseLogger): void {
-  if (!process.env.X_BEARER_TOKEN) {
-    logger.warn("[SocialMonitoring] X_BEARER_TOKEN not set — scans will fail until it is added.");
-  }
-
-  cron.schedule("0 */6 * * *", () => {
-    logger.info("[SocialMonitoring] Cron fired — scanning all active projects");
-    scanAllProjects(prisma, logger).catch((err) =>
-      logger.error({ err }, "[SocialMonitoring] Scheduled scan error")
-    );
-  });
-
-  logger.info("[SocialMonitoring] Scheduler started — fires every 6 hours");
 }

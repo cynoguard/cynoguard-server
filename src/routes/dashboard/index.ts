@@ -22,10 +22,39 @@ const dashboardRoutes = (
      return getOrganizations(request,reply);
   });
 
-  //! Bot detection related information fetching and business logics
+  // ── Project ID lookup by org name + project name ──────────────────────────
+  // Used by the console to resolve projectId from URL params (:org/:project)
+  // without depending on localStorage. Works for every user and every project.
+  fastify.get(
+    "/api/project-id",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { orgName, projectName } = request.query as { orgName: string; projectName: string };
 
-  // create new api key for bot detection js snippets
+      if (!orgName || !projectName) {
+        return reply.status(400).send({ error: "orgName and projectName are required" });
+      }
 
+      try {
+        const project = await fastify.prisma.project.findFirst({
+          where: {
+            name:         projectName,
+            organization: { name: orgName },
+          },
+          select: { id: true, name: true },
+        });
+
+        if (!project) {
+          return reply.status(404).send({ error: "Project not found" });
+        }
+
+        return reply.send({ status: "success", data: { projectId: project.id, projectName: project.name } });
+      } catch (err: any) {
+        return reply.status(500).send({ error: "Internal Server Error", message: err.message });
+      }
+    }
+  );
+
+  // Bot detection routes
   fastify.post("/api/bot-dtection/api-key",async(request: FastifyRequest, reply: FastifyReply )=>{
     return createApiKey(request,reply);
   });
@@ -39,7 +68,7 @@ const dashboardRoutes = (
   });
 
    fastify.get("/api/bot-dtection/api-keys/:projectId/list",async(request: FastifyRequest, reply: FastifyReply )=>{
-    return getApiKeysList(request,reply);
+    return getApiKeysList(request,reply)
   });
 
    fastify.put("/api/bot-dtection/api-key/:id",async(request: FastifyRequest, reply: FastifyReply )=>{
