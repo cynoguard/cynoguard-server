@@ -14,7 +14,7 @@ import settingsRoutes from "./routes/settings/index.js";
 import botDetectionRoutes from "./routes/v1/bot-detection/index.js";
 import socialMonitoringRoutes from "./routes/v1/social-monitoring/index.js";
 import test from "./test/index.js";
-// import test from "./test/index.js";
+
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -38,7 +38,7 @@ const allowedOrigins = [
 
 await fastify.register(cors, {
   origin: allowedOrigins, // Restricts access to specified origins
-  methods: ["GET", "POST", "PUT", "DELETE"], // Specify allowed methods
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], // Specify allowed methods
   credentials: true, // If you need to handle cookies or authorization headers
 });
 
