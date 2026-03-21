@@ -3,12 +3,29 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+function ensureSslMode(connectionString: string): string {
+  const parsed = new URL(connectionString);
+
+  // Keep existing sslmode if already provided.
+  if (!parsed.searchParams.has("sslmode")) {
+    parsed.searchParams.set("sslmode", "require");
+  }
+
+  return parsed.toString();
+}
+
+const databaseUrl = process.env.DATABASE_PROD_URL;
+
+if (!databaseUrl) {
+  throw new Error("DATABASE_PROD_URL is not set.");
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env.DATABASE_PROD_URL! + "?sslmode=require",
+    url: ensureSslMode(databaseUrl),
   },
 });

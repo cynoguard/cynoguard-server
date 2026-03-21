@@ -295,3 +295,70 @@ model ScanLog {
   @@index([projectId])
   @@map("scan_logs")
 }
+
+// Add to Project model:
+watchlistEntries WatchlistEntry[]
+
+model WatchlistEntry {
+  id                       String    @id @default(uuid())
+  projectId                String    @map("project_id")
+  officialDomainRaw        String    @map("official_domain_raw")
+  officialDomainNormalized String    @map("official_domain_normalized")
+  label                    String?
+  active                   Boolean   @default(true)
+  intervalHours            Int       @default(24) @map("interval_hours")
+  candidateCount           Int       @default(100) @map("candidate_count")
+  similarityThreshold      Float     @default(0.8) @map("similarity_threshold")
+  tldStrategy              String    @default("SAME_TLD_ONLY") @map("tld_strategy")
+  tldAllowlist             String[]  @map("tld_allowlist")
+  tldSuspicious            String[]  @map("tld_suspicious")
+  lastScanAt               DateTime? @map("last_scan_at")
+  lastScanStatus           String?   @map("last_scan_status")
+  nextRunAt                DateTime? @map("next_run_at")
+  suspiciousCount          Int       @default(0) @map("suspicious_count")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  candidates CandidateDomain[]
+  scanLogs   DomainScanLog[]
+
+  @@unique([projectId, officialDomainNormalized])
+  @@index([projectId])
+  @@map("watchlist_entries")
+}
+
+model CandidateDomain {
+  id               String    @id @default(uuid())
+  watchlistEntryId String    @map("watchlist_entry_id")
+  domain           String
+  source           String    @default("GENERATED")
+  similarityScore  Float     @default(0) @map("similarity_score")
+  tld              String
+  isActive         Boolean   @default(true) @map("is_active")
+  riskLevel        String?   @map("risk_level")
+  rdapRegistered   Boolean?  @map("rdap_registered")
+  rdapCheckedAt    DateTime? @map("rdap_checked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  watchlistEntry WatchlistEntry @relation(fields: [watchlistEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistEntryId, domain])
+  @@index([watchlistEntryId])
+  @@map("candidate_domains")
+}
+
+model DomainScanLog {
+  id               String    @id @default(uuid())
+  watchlistEntryId String    @map("watchlist_entry_id")
+  scanStatus       String    @default("success") @map("scan_status")
+  candidatesFound  Int       @default(0) @map("candidates_found")
+  newFound         Int       @default(0) @map("new_found")
+  errorMessage     String?   @map("error_message")
+  scannedAt        DateTime  @default(now()) @map("scanned_at")
+
+  watchlistEntry WatchlistEntry @relation(fields: [watchlistEntryId], references: [id], onDelete: Cascade)
+
+  @@index([watchlistEntryId])
+  @@map("domain_scan_logs")
+}

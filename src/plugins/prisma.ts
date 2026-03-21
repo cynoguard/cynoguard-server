@@ -2,7 +2,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import "dotenv/config";
-import { readFileSync } from 'fs';
+import { readFileSync } from 'node:fs';
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_PROD_URL!,
