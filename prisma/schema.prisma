@@ -11,6 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_PROD_URL")
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -232,8 +233,6 @@ model ApiKeyRule {
 }
 
 // ─── Social Monitoring ────────────────────────────────────────────────────────
-// CynoGuard owns a single X_BEARER_TOKEN from env.
-// No per-project credentials — SocialHandler model is removed.
 
 model MonitoringKeyword {
   id        String   @id @default(uuid())
@@ -296,6 +295,7 @@ model ScanLog {
   @@index([projectId])
   @@map("scan_logs")
 }
+
 model WatchlistEntry {
   id                       String    @id @default(uuid())
   projectId                String    @map("project_id")
