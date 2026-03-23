@@ -1,15 +1,21 @@
-
-import cors from '@fastify/cors';
-import fastifySwagger from '@fastify/swagger';
-import fastifySwaggerUi from '@fastify/swagger-ui';
-import 'dotenv/config';
+import cors from "@fastify/cors";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUi from "@fastify/swagger-ui";
+import "dotenv/config";
 import Fastify, { type FastifyInstance } from "fastify";
-import app from './app.js';
+import app from "./app.js";
 import { prisma } from "./plugins/prisma.js";
-import { swaggerOption, swaggerUiOptions } from './plugins/swagger.js';
-import authRoutes from './routes/auth/index.js';
-import botDetectionRoutes from './routes/v1/bot-detection/index.js';
-import test from './test/index.js';
+import { swaggerOption, swaggerUiOptions } from "./plugins/swagger.js";
+import authRoutes from "./routes/auth/index.js";
+import botAnalyticsRoute from "./routes/bot-analytics/index.js";
+import dashboardRoutes from "./routes/dashboard/index.js";
+import onboardingRoutes from "./routes/onboarding/index.js";
+import settingsRoutes from "./routes/settings/index.js";
+import botDetectionRoutes from "./routes/v1/bot-detection/index.js";
+import domainMonitoringRoutes from "./routes/v1/domain-monitoring/index.js";
+import socialMonitoringRoutes from "./routes/v1/social-monitoring/index.js";
+import test from "./test/index.js";
+
 
 // Domain Monitoring imports
 import watchDomainRoutes from './routes/v1/watch-domains/index.js';
@@ -43,8 +49,13 @@ fastify.register(fastifySwaggerUi, swaggerUiOptions);
 fastify.register(app);
 fastify.register(authRoutes);
 fastify.register(botDetectionRoutes);
-//test file
+fastify.register(onboardingRoutes);
+fastify.register(dashboardRoutes);
+fastify.register(botAnalyticsRoute);
+fastify.register(socialMonitoringRoutes);
+fastify.register(settingsRoutes);
 fastify.register(test);
+fastify.register(domainMonitoringRoutes);
 
 // Domain Monitoring routes
 fastify.register(watchDomainRoutes);

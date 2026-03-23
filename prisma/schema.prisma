@@ -13,107 +13,181 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
   MEMBER
 }
 
+enum DeviceType {
+  DESKTOP
+  MOBILE
+  TABLET
+  BOT
+  UNKNOWN
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Platform {
+  X
+}
+
+enum MentionStatus {
+  NEW
+  VIEWED
+  DISMISSED
+  ARCHIVED
+}
+
+enum ScanStatus {
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+enum Sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+
+// ─── Core Models ──────────────────────────────────────────────────────────────
+
 model User {
-  id          String   @id @default(cuid())
-  firebaseId  String   @unique @map("firebase_id")
-  email       String   @unique
-  firstName   String?  @map("first_name")
-  lastName    String?  @map("last_name")
-  role        UserRole @default(MEMBER)
-  isOnboarded Boolean  @default(false) @map("is_onboarded")
+  id         String   @id @default(cuid())
+  firebaseId String   @unique @map("firebase_id")
+  email      String   @unique
+  firstName  String?  @map("first_name")
+  lastName   String?  @map("last_name")
+  role       UserRole @default(MEMBER)
+  isActive   Boolean  @default(true) @map("is_active")
+  lastLogin  DateTime? @map("last_login")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  // membership OrganizationMember?
+  organizationMembers OrganizationMember[]
 
-  // CynoGuard Specifics
-  isActive  Boolean   @default(true) @map("is_active")
-  lastLogin DateTime? @map("last_login")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@map("users") // The table in AWS RDS will still be called "users"
+  @@map("users")
 }
 
 model Organization {
   id             String   @id @default(uuid())
-  name           String
+  name           String   @unique
   industry       String?
+  businessType   String?  @map("business_type")
+  primaryUses    String[] @map("primary_uses")
+  teamSize       String?  @map("team_size")
   discoverSource String?  @map("discover_source")
   offerCode      String?  @map("offer_code")
+  isOnboarded    Boolean  @default(false) @map("is_onboarded")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  // Relations
-  memebers OrganizationMember[]
+  members  OrganizationMember[]
   projects Project[]
 
   @@map("organizations")
 }
 
 model Project {
-  id             String       @id @default(uuid())
-  organizationId String       @map("organization_id")
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
   name           String
-  status         String       @default("active")
-  createdAt      DateTime     @map("created_at")
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  apiKeys        ApiKey[]
-  detections     Detection[]
+  status         String   @default("active")
+  industry       String?
+  environment    String
+  primaryDomain  String   @map("primary_domain")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  apiKeys      ApiKey[]
+  detections   Detection[]
+
+  // Social Monitoring — CynoGuard's shared token, no per-project credentials
+  keywords     MonitoringKeyword[]
+  mentions     BrandMention[]
+  scanLogs     ScanLog[]
+
+  @@unique([name, organizationId])
   @@map("projects")
+  watchlistEntries WatchlistEntry[]
 }
 
-model ApiKey {
-  id         String   @id @default(uuid())
-  projectId  String   @map("project_id")
-  keyHash    String   @unique @map("key_hash")
-  name       String
-  scopes     String
-  status     String
-  lastUsedAt DateTime @map("last_used_at")
-  expiresAt  DateTime @map("expires_at")
-  createdAt  DateTime @map("created_at")
+// ─── Bot Detection ────────────────────────────────────────────────────────────
 
-  //relation
-  project Project @relation(fields: [projectId], references: [id])
+model ApiKey {
+  id         String    @id @default(uuid())
+  projectId  String    @map("project_id")
+  keyHash    String    @unique @map("key_hash")
+  name       String
+  scopes     String?
+  status     String    @default("pending")
+  lastUsedAt DateTime? @map("last_used_at")
+  expiresAt  DateTime? @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  connectionVerified Boolean @default(false) @map("connection_verified")
+  project Project    @relation(fields: [projectId], references: [id])
+  rule    ApiKeyRule?
 
   @@map("api_keys")
 }
 
 model Detection {
-  id               String   @id @default(uuid())
-  projectId        String   @map("project_id")
-  challengeHistory String[] @map("challenge_history")
-  ipAddress        String   @map("ip_address")
-  score            Int
-  action           String
-  signals          Json
-  isHuman          Boolean  @map("is_human")
-  createdAt        DateTime @default(now()) @map("created_at")
-  timeToSolve      Int      @map("time_to_solve") // all time data store base as millisecond
+  id          String     @id @default(uuid())
+  projectId   String     @map("project_id")
+  sessionId   String?    @map("session_id")
+  ipAddress   String     @map("ip_address")
+  countryCode String?    @map("country_code")
+  city        String?
+  userAgent   String     @map("user_agent")
+  deviceType  DeviceType @default(UNKNOWN) @map("device_type")
+  isHeadless  Boolean    @default(false) @map("is_headless")
+  score       Int
+  riskLevel   RiskLevel  @map("risk_level")
+  action      String
+  isHuman     Boolean    @map("is_human")
+  challengeCount  Int    @default(0) @map("challenge_count")
+  challengeSolved Boolean @default(false) @map("challenge_solved")
+  timeToSolve Int        @default(0) @map("time_to_solve")
+  signals     Json
+  createdAt   DateTime   @default(now()) @map("created_at")
 
-  //relations
-  project Project @relation(fields: [projectId], references: [id])
+  project           Project            @relation(fields: [projectId], references: [id])
+  challengeAttempts ChallengeAttempt[]
 
+  @@index([projectId, createdAt])
+  @@index([projectId, action])
+  @@index([projectId, countryCode])
+  @@index([projectId, isHuman])
+  @@index([sessionId])
+  @@index([ipAddress])
   @@map("detections")
 }
 
-model OrganizationMember {
-  id             String @id @default(uuid())
-  organizationId String @map("organization_id")
-  userId         String @unique @map("user_id")
-  role           String @default("OWNER")
+model ChallengeAttempt {
+  id          String    @id @default(uuid())
+  detectionId String    @map("detection_id")
+  challengeId String    @map("challenge_id")
+  issuedAt    DateTime  @default(now()) @map("issued_at")
+  answeredAt  DateTime? @map("answered_at")
+  success     Boolean
+  timeToSolve Int?      @map("time_to_solve")
 
-  // Relations
-  organization Organization @relation(fields: [organizationId], references: [id])
+  detection Detection     @relation(fields: [detectionId], references: [id])
+  challenge ChallengeBank @relation(fields: [challengeId], references: [id])
 
-  @@map("organization_members")
+  @@index([detectionId])
+  @@index([challengeId])
+  @@map("challenge_attempts")
 }
 
 model ChallengeBank {
@@ -122,10 +196,9 @@ model ChallengeBank {
   successCount    Int     @default(0) @map("success_count")
   failCount       Int     @default(0) @map("fail_count")
   isActive        Boolean @default(true) @map("is_active")
-  // 1: Easy (Short sentences)
-  // 2: Medium (Standard)
-  // 3: Hard (Complex logic/punctuation)
   difficultyLevel Int     @default(0) @map("difficulty_level")
+
+  attempts ChallengeAttempt[]
 
   @@map("challenge_bank")
 }

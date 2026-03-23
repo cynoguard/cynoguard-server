@@ -1,0 +1,73 @@
+name: Node.js CI & Deploy
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: self-hosted
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      # Debug CI environment and lockfile visibility
+      - name: Debug workspace
+        run: |
+          pwd
+          ls -la
+          node -v
+          npm -v
+          npm config get package-lock
+
+      # Install dependencies with strict lockfile check
+      - name: Install dependencies
+        run: |
+          npm config set package-lock true
+          if [ ! -f package-lock.json ]; then
+            echo "package-lock.json is missing in this checked-out ref."
+            exit 1
+          fi
+          npm ci
+
+      # Build TypeScript code
+      - run: npm run build --if-present
+
+      # Set up environment variables
+      - run: |
+          touch .env
+          echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
+
+      # Download AWS RDS SSL Certificate
+      - name: Download AWS RDS Certificate
+        run: |
+          if [ ! -f /home/ubuntu/rds-ca.pem ]; then
+            wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -O /home/ubuntu/rds-ca.pem
+            echo "RDS cert downloaded ✅"
+          else
+            echo "RDS cert already exists ✅"
+          fi
+
+      # Prisma      
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+
+      # Start or reload PM2 safely (handles first deploy + subsequent deploys)
+      - name: Start or Reload PM2
+        run: |
+          pm2 start ecosystem.config.cjs --only api --update-env || \
+          pm2 reload ecosystem.config.cjs --only api --update-env

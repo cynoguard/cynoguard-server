@@ -1,0 +1,136 @@
+// src/modules/social-monitoring/social-monitoring.routes.ts
+// Route definitions only — no logic here. All logic lives in social-monitoring.handler.ts.
+// Register in your main Fastify app: fastify.register(socialMonitoringRoutes)
+
+import type { FastifyInstance } from "fastify";
+import { verifyFirebaseToken } from "../../../services/firebase.service.js";
+import {
+  addKeyword,
+  deleteKeyword,
+  getMention,
+  getMentionStats,
+  listKeywords,
+  listMentions,
+  toggleKeyword,
+  triggerScan,
+  updateMention,
+} from "./social-monitoring.handler.js";
+import {
+  AddKeywordBody,
+  KeywordParams,
+  MentionParams,
+  MentionsQuerystring,
+  ProjectParams,
+  ToggleKeywordBody,
+  UpdateMentionBody,
+} from "./social-monitoring.schema.js";
+
+// ─── Auth preHandler ──────────────────────────────────────────────
+// Decodes the Firebase/JWT token from the Authorization header
+// and sets request.userId so assertMember() can verify access.
+async function authPreHandler(request: any, reply: any) {
+  const authHeader = request.headers.authorization;
+
+  if (!authHeader) {
+    return reply.status(401).send({ error: "Unauthorized", message: "No authorization header" });
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+
+  try {
+    // Try Firebase token first
+    const decoded = await verifyFirebaseToken(token);
+    if (decoded?.uid) {
+      // Look up the internal DB user id from firebaseId
+      const user = await (request.server as any).prisma.user.findUnique({
+        where: { firebaseId: decoded.uid },
+        select: { id: true },
+      });
+      if (!user) {
+        return reply.status(401).send({ error: "Unauthorized", message: "User not found" });
+      }
+      request.userId = user.id;
+      return;
+    }
+  } catch {
+    // Not a Firebase token — try JWT below
+  }
+
+  try {
+    // Try internal JWT (used after onboarding)
+    const jwt = await import("jsonwebtoken");
+    const decoded = jwt.default.verify(token, process.env.JWT_SECRET!) as any;
+    if (decoded?.uid) {
+      request.userId = decoded.uid;
+      return;
+    }
+  } catch {
+    return reply.status(401).send({ error: "Unauthorized", message: "Invalid token" });
+  }
+}
+
+// ─── Routes ───────────────────────────────────────────────────────
+
+export default async function socialMonitoringRoutes(fastify: FastifyInstance) {
+
+  // Apply auth to all social monitoring routes
+  fastify.addHook("preHandler", authPreHandler);
+
+  // ── Keywords ──────────────────────────────────────────────────
+  fastify.get(
+    "/api/v1/projects/:projectId/keywords",
+    { schema: { tags: ["Social Monitoring"], params: ProjectParams } },
+    (req, rep) => listKeywords(fastify, req as any, rep)
+  );
+
+  fastify.post(
+    "/api/v1/projects/:projectId/keywords",
+    { schema: { tags: ["Social Monitoring"], params: ProjectParams, body: AddKeywordBody } },
+    (req, rep) => addKeyword(fastify, req as any, rep)
+  );
+
+  fastify.patch(
+    "/api/v1/projects/:projectId/keywords/:keywordId",
+    { schema: { tags: ["Social Monitoring"], params: KeywordParams, body: ToggleKeywordBody } },
+    (req, rep) => toggleKeyword(fastify, req as any, rep)
+  );
+
+  fastify.delete(
+    "/api/v1/projects/:projectId/keywords/:keywordId",
+    { schema: { tags: ["Social Monitoring"], params: KeywordParams } },
+    (req, rep) => deleteKeyword(fastify, req as any, rep)
+  );
+
+  // ── Mentions ──────────────────────────────────────────────────
+
+  fastify.get(
+    "/api/v1/projects/:projectId/mentions",
+    { schema: { tags: ["Social Monitoring"], params: ProjectParams, querystring: MentionsQuerystring } },
+    (req, rep) => listMentions(fastify, req as any, rep)
+  );
+
+  // NOTE: stats MUST be registered before /:mentionId
+  fastify.get(
+    "/api/v1/projects/:projectId/mentions/stats",
+    { schema: { tags: ["Social Monitoring"], params: ProjectParams } },
+    (req, rep) => getMentionStats(fastify, req as any, rep)
+  );
+
+  fastify.get(
+    "/api/v1/projects/:projectId/mentions/:mentionId",
+    { schema: { tags: ["Social Monitoring"], params: MentionParams } },
+    (req, rep) => getMention(fastify, req as any, rep)
+  );
+
+  fastify.patch(
+    "/api/v1/projects/:projectId/mentions/:mentionId",
+    { schema: { tags: ["Social Monitoring"], params: MentionParams, body: UpdateMentionBody } },
+    (req, rep) => updateMention(fastify, req as any, rep)
+  );
+
+  fastify.post(
+    "/api/v1/projects/:projectId/mentions/scan",
+    { schema: { tags: ["Social Monitoring"], params: ProjectParams } },
+    (req, rep) => triggerScan(fastify, req as any, rep)
+  );
+}

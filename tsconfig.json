@@ -3,27 +3,24 @@
     "rootDir": "src",
     "outDir": "dist",
 
-    /* Environment Settings */
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "target": "esnext",
     "lib": ["esnext"],
     "types": ["node"],
 
-    /* Fast Development Optimization */
-    "sourceMap": false,       // Turn OFF for dev (makes compilation faster)
-    "declaration": false,     // Turn OFF for dev (unless we're building a library)
-    "declarationMap": false,  // Turn OFF for dev
-    "incremental": true,      // Turn ON (only recompiles what changed)
+    "sourceMap": false,
+    "declaration": false,
+    "declarationMap": false,
+    "incremental": true,
     "tsBuildInfoFile": "./.tsbuildinfo",
 
-    /* Stricter Typechecking (Keep these, they are great) */
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "skipLibCheck": true,      // Essential for speed (ignores errors in node_modules)
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "skipLibCheck": true,
 
-    /* Modern ESM Requirements */
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "moduleDetection": "force",

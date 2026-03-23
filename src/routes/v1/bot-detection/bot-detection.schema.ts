@@ -73,46 +73,27 @@ export const verifyChallengeSchema = {
     }
 }
 
-
 export const reTakeChallengeSchema = {
-    summary:"Challenge Verification",
-    description:"Verify if a user has correctly answered a challenge",
-    tags:["Bot Detection"],
-    headers:Type.Object({
-        authorization:Type.String({ pattern: '^Bearer .+$' }),
+  summary: "Retake Challenge",
+  description: "Issue a fresh challenge for a detection that failed",
+  tags: ["Bot Detection"],
+  headers: Type.Object({
+    authorization: Type.String({ pattern: "^Bearer .+$" }),
+  }),
+  response: {
+    200: Type.Object({
+      status:  Type.String(),
+      message: Type.String(),
+      data: Type.Object({
+        challenge: Type.Object({
+          context:   Type.String(),
+          condition: Type.Number(),
+          token:     Type.String(),
+        }),
+      }),
     }),
-    body:verifyChallengeBodySchema,
-    response:{
-        200:Type.Object({
-            status:Type.String(),
-            message:Type.String(),
-            data:Type.Object({
-                challenge_verified:Type.Boolean(),
-                cookies:Type.Object({
-                    token:Type.String(),
-                })
-            })
-        }),
-        500:Type.Object({
-            status:Type.String(),
-            message:Type.Optional(Type.String()),
-            error:Type.String(),
-        }),
-        404:Type.Object({
-            status:Type.String(),
-            message:Type.Optional(Type.String()),
-            error:Type.String(),
-           
-        }),
-        401:Type.Object({
-            status:Type.String(),
-            message:Type.Optional(Type.String()),
-            error:Type.String(),
-             data:Type.Object({
-                challenge:Type.Object({
-                    retake_token:Type.String(),
-                })
-            })
-        }),
-    }
-}
+    500: Type.Object({ status: Type.String(), message: Type.Optional(Type.String()), error: Type.String() }),
+    404: Type.Object({ status: Type.String(), message: Type.Optional(Type.String()), error: Type.String() }),
+    401: Type.Object({ status: Type.String(), message: Type.Optional(Type.String()), error: Type.String() }),
+  },
+};

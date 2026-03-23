@@ -1,11 +1,13 @@
+import type { FastifyInstance, FastifyPluginOptions, FastifyReply, FastifyRequest } from "fastify";
+import { syncOnboardingData } from "./onboarding.handler.js";
 
-import type { FastifyInstance } from 'fastify';
+const onboardingRoutes = (fastify:FastifyInstance,options:FastifyPluginOptions)=>{
 
-
-import { handlePostOnboarding, handleGetStatus } from './handler.js';
-import { postOnboardingSchema, getStatusSchema } from './onboarding.schema.js';
-
-export default async function (fastify: FastifyInstance) {
-  fastify.post('/', { schema: postOnboardingSchema }, handlePostOnboarding);
-  fastify.get('/status/:userId', { schema: getStatusSchema }, handleGetStatus);
+  // sync onboarding data
+  fastify.put("/api/onboarding/sync",async(request:FastifyRequest,reply:FastifyReply)=>{
+    return await syncOnboardingData(request,reply);
+  });
+  
 }
+
+export default onboardingRoutes;
