@@ -17,6 +17,13 @@ import socialMonitoringRoutes from "./routes/v1/social-monitoring/index.js";
 import test from "./test/index.js";
 
 
+// Domain Monitoring imports
+import watchDomainRoutes from './routes/v1/watch-domains/index.js';
+import candidateRoutes from './routes/v1/candidates/index.js';
+import alertRoutes from './routes/v1/alerts/index.js';
+import { setupWebSocket } from './plugins/websocket.js';
+import { setupCron } from './plugins/cron.js';
+
 declare module "fastify" {
   interface FastifyInstance {
     prisma: typeof prisma;
@@ -24,22 +31,14 @@ declare module "fastify" {
 }
 
 const fastify: FastifyInstance = Fastify({
-  logger: true,
+  logger: true
 });
 
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:3002",
-  "http://localhost:3003",
-  "https://console.cynoguard.com",
-  "https://cdn.cynoguard.com",
-  "https://cynoguard.com",
-];
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'];
 
 await fastify.register(cors, {
   origin: allowedOrigins, // Restricts access to specified origins
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], // Specify allowed methods
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Specify allowed methods
   credentials: true, // If you need to handle cookies or authorization headers
 });
 
@@ -58,17 +57,27 @@ fastify.register(settingsRoutes);
 fastify.register(test);
 fastify.register(domainMonitoringRoutes);
 
-//test file
-// fastify.register(test);
+// Domain Monitoring routes
+fastify.register(watchDomainRoutes);
+fastify.register(candidateRoutes);
+fastify.register(alertRoutes);
 
 const start = async () => {
   try {
     const port = 4000;
-    await fastify.listen({ port: port, host: "0.0.0.0" });
+    await fastify.listen({ port: port, host: '0.0.0.0' });
+
+    // Initialize WebSocket (after Fastify is listening)
+    setupWebSocket(fastify);
+
+    // Initialize Cron scheduler
+    setupCron();
+
+    console.log(`Server running on http://localhost:${port}`);
   } catch (error) {
-    fastify.log.error(error);
-    process.exit(1);
+    fastify.log.error(error)
+    process.exit(1)
   }
-};
+}
 
 start();

@@ -1,140 +1,120 @@
-import type { PrismaClient } from "@prisma/client";
-import type { FastifyBaseLogger } from "fastify";
-import { findMatchedKeyword, scoreContent } from "./risk-scoring.service.js";
-import { fetchMentions } from "./x.service.js";
-
-export interface ScanResult {
-  projectId: string;
-  mentionsFound: number;
-  newMentions: number;
-  highRiskCount: number;
-  error?: string | null;
-}
-
 /**
- * Scans one project.
- * - Loads active keywords from DB
- * - Uses CynoGuard's shared X token (from env) to search
- * - Scores each tweet and saves to BrandMention table
- * - Writes a ScanLog record
+ * Monitoring service — runs the RDAP check cycle and creates alerts.
+ * Called by the cron job every 6 hours.
  */
-export async function scanProject(
-  prisma: PrismaClient,
-  projectId: string,
-  logger: FastifyBaseLogger
-): Promise<ScanResult> {
-  logger.info({ projectId }, "[SocialMonitoring] Starting scan");
 
-  // Load active keywords — no handler check needed anymore
-  const keywordRows = await prisma.monitoringKeyword.findMany({
-    where: { projectId, isActive: true },
-  });
+import { prisma } from "../plugins/prisma.js";
+import { getTld } from "../lib/domain-normalize.js";
+import { evaluateSuspiciousness } from "../lib/tld-strategy.js";
+import { rdapLookup } from "./rdap.service.js";
+import { createAlert } from "./alert.service.js";
 
-  if (keywordRows.length === 0) {
-    logger.warn({ projectId }, "[SocialMonitoring] No active keywords — skipping");
-    return { projectId, mentionsFound: 0, newMentions: 0, highRiskCount: 0 };
-  }
+const DEFAULT_SIMILARITY_THRESHOLD = 0.85;
 
-  const keywords = keywordRows.map((k) => k.keyword);
-
-  let mentionsFound = 0;
-  let newMentions = 0;
-  let highRiskCount = 0;
-  let scanStatus: "SUCCESS" | "FAILED" | "PARTIAL" = "SUCCESS";
-  let errorMessage: string | null = null;
-
-  try {
-    // Use CynoGuard's shared X token — no encrypted token from DB
-    const tweets = await fetchMentions(keywords, 50);
-    mentionsFound = tweets.length;
-
-    for (const tweet of tweets) {
-      const { score, level, flags, sentiment } = scoreContent(tweet.text);
-      const matchedKeyword = findMatchedKeyword(tweet.text, keywords);
-
-      const mention = await prisma.brandMention.upsert({
-        where: { projectId_externalId: { projectId, externalId: tweet.id } },
-        // On repeat scans — only refresh engagement counts
-        update: {
-          likeCount: tweet.likeCount,
-          retweetCount: tweet.retweetCount,
-        },
-        // New mention — save everything
-        create: {
-          projectId,
-          platform: "X",
-          externalId: tweet.id,
-          content: tweet.text,
-          authorUsername: tweet.authorUsername,
-          authorId: tweet.authorId,
-          tweetUrl: tweet.url,
-          likeCount: tweet.likeCount,
-          retweetCount: tweet.retweetCount,
-          riskScore: score,
-          riskLevel: level,
-          riskFlags: flags,
-          sentiment,
-          matchedKeyword,
-          status: "NEW",
-          publishedAt: tweet.publishedAt,
-        },
-      });
-
-      if (mention.createdAt.getTime() === mention.updatedAt.getTime()) {
-        newMentions++;
-      }
-      if (level === "HIGH" || level === "CRITICAL") highRiskCount++;
+function getThreshold(watchDomainThreshold: number | null): number {
+    if (watchDomainThreshold !== null && watchDomainThreshold !== undefined) {
+        return watchDomainThreshold;
     }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ projectId, err: msg }, "[SocialMonitoring] Scan failed");
-    scanStatus = "FAILED";
-    errorMessage = msg;
-  }
-
-  await prisma.scanLog.create({
-    data: {
-      projectId,
-      platform: "X",
-      scanStatus,
-      mentionsFound,
-      highRiskCount,
-      errorMessage,
-    },
-  });
-
-  logger.info(
-    { projectId, mentionsFound, newMentions, highRiskCount },
-    "[SocialMonitoring] Scan complete"
-  );
-
-  return { projectId, mentionsFound, newMentions, highRiskCount, error: errorMessage };
+    const envThreshold = parseFloat(
+        process.env.SIMILARITY_THRESHOLD || "0.85"
+    );
+    return isNaN(envThreshold) ? DEFAULT_SIMILARITY_THRESHOLD : envThreshold;
 }
 
 /**
- * Scans ALL projects that have at least one active keyword.
- * Called by the cron scheduler every 6 hours.
+ * Run a full monitoring cycle:
+ * 1. Load all ACTIVE watch domains
+ * 2. For each, load active candidates
+ * 3. RDAP check each candidate
+ * 4. Evaluate suspiciousness
+ * 5. Create alerts for suspicious + registered candidates
  */
-export async function scanAllProjects(
-  prisma: PrismaClient,
-  logger: FastifyBaseLogger
-): Promise<void> {
-  logger.info("[SocialMonitoring] Cron: starting all-project scan");
+export async function runMonitoringCycle(): Promise<void> {
+    console.log("[Monitoring] Starting monitoring cycle...");
 
-  // Get every project that has at least one active keyword
-  // No handler check — CynoGuard's token works for everyone
-  const projects = await prisma.project.findMany({
-    where: {
-      keywords: { some: { isActive: true } },
-    },
-    select: { id: true },
-  });
+    const watchDomains = await prisma.watchDomain.findMany({
+        where: { status: "ACTIVE" },
+    });
 
-  logger.info({ count: projects.length }, "[SocialMonitoring] Projects to scan");
+    console.log(`[Monitoring] Found ${watchDomains.length} active watch domains`);
 
-  for (const project of projects) {
-    await scanProject(prisma, project.id, logger);
-  }
+    for (const wd of watchDomains) {
+        try {
+            await processWatchDomain(wd);
+        } catch (error) {
+            console.error(
+                `[Monitoring] Error processing watch domain ${wd.domain}:`,
+                error
+            );
+        }
+    }
 
-  logger.info("[SocialMonitoring] Cron: all scans complete");
+    console.log("[Monitoring] Monitoring cycle complete.");
+}
+
+async function processWatchDomain(wd: any): Promise<void> {
+    const candidates = await prisma.candidateDomain.findMany({
+        where: { watchDomainId: wd.id, isActive: true },
+    });
+
+    console.log(
+        `[Monitoring] Processing ${candidates.length} candidates for ${wd.domain}`
+    );
+
+    const threshold = getThreshold(wd.similarityThreshold);
+    const watchTld = getTld(wd.domain);
+
+    for (const candidate of candidates) {
+        try {
+            // 1. RDAP lookup
+            const rdapResult = await rdapLookup(candidate.domain);
+
+            // 2. Persist RDAP result
+            await prisma.candidateDomain.update({
+                where: { id: candidate.id },
+                data: {
+                    rdapCheckedAt: new Date(),
+                    rdapRegistered: rdapResult.registered,
+                    rdapStatus: rdapResult.status ?? [],
+                    rdapRaw: rdapResult.raw ?? undefined,
+                },
+            });
+
+            // 3. Evaluate suspiciousness
+            if (rdapResult.registered !== true) continue;
+
+            const result = evaluateSuspiciousness(
+                candidate.tld,
+                watchTld,
+                wd.tldStrategy,
+                wd.tldAllowlist,
+                wd.tldSuspicious,
+                candidate.similarityScore,
+                threshold
+            );
+
+            if (!result.isSuspicious) continue;
+
+            // 4. Create alert (with dedupe)
+            const message = `Suspicious similar domain registered: ${candidate.domain} (similarity ${candidate.similarityScore.toFixed(2)}, tld ${candidate.tld})`;
+
+            await createAlert({
+                tenantId: wd.tenantId,
+                userId: wd.userId,
+                watchDomainId: wd.id,
+                candidateDomainId: candidate.id,
+                candidateDomain: candidate.domain,
+                watchDomain: wd.domain,
+                severity: result.severity as any,
+                similarityScore: candidate.similarityScore,
+                tld: candidate.tld,
+                message,
+            });
+        } catch (error) {
+            console.error(
+                `[Monitoring] Error checking candidate ${candidate.domain}:`,
+                error
+            );
+        }
+    }
 }
