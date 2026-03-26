@@ -25,7 +25,6 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      # Debug CI environment and lockfile visibility
       - name: Debug workspace
         run: |
           pwd
@@ -34,7 +33,12 @@ jobs:
           npm -v
           npm config get package-lock
 
-      # Install dependencies with strict lockfile check
+      # ✅ Set up .env BEFORE npm ci so prisma generate can read DATABASE_URL
+      - name: Setup environment variables
+        run: |
+          touch .env
+          echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
+
       - name: Install dependencies
         run: |
           npm config set package-lock true
@@ -44,15 +48,8 @@ jobs:
           fi
           npm ci
 
-      # Build TypeScript code
       - run: npm run build --if-present
 
-      # Set up environment variables
-      - run: |
-          touch .env
-          echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
-
-      # Download AWS RDS SSL Certificate
       - name: Download AWS RDS Certificate
         run: |
           if [ ! -f /home/ubuntu/rds-ca.pem ]; then
@@ -62,11 +59,9 @@ jobs:
             echo "RDS cert already exists ✅"
           fi
 
-      # Prisma      
       - run: npx prisma generate
       - run: npx prisma migrate deploy
 
-      # Start or reload PM2 safely (handles first deploy + subsequent deploys)
       - name: Start or Reload PM2
         run: |
           pm2 start ecosystem.config.cjs --only api --update-env || \
