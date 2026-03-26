@@ -1,7 +1,7 @@
-import cron from "node-cron";
 import type { PrismaClient } from "@prisma/client";
 import type { FastifyBaseLogger } from "fastify";
-import { scanAllProjects } from "../services/monitoring.service.js";
+import cron from "node-cron";
+import { scanAllProjects } from "../services/social-monitoring.service.js";
 
 /**
  * Starts the social monitoring cron job.

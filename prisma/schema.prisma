@@ -59,6 +59,33 @@ enum Sentiment {
   NEUTRAL
 }
 
+enum WatchDomainStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TldStrategy {
+  SAME_TLD_ONLY
+  ALLOWLIST
+  MIXED
+}
+
+enum CandidateSource {
+  ALGO
+  GEMINI
+  MANUAL
+}
+
+enum AlertType {
+  SUSPICIOUS_DOMAIN
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
 // ─── Core Models ──────────────────────────────────────────────────────────────
 
 model User {
@@ -116,6 +143,7 @@ model Project {
   keywords     MonitoringKeyword[]
   mentions     BrandMention[]
   scanLogs     ScanLog[]
+  watchlistEntries WatchlistEntry[]
 
   @@unique([name, organizationId])
   @@map("projects")
@@ -294,4 +322,123 @@ model ScanLog {
 
   @@index([projectId])
   @@map("scan_logs")
+}
+
+// ─── Domain Monitoring ───────────────────────────────────────────────────────
+
+model WatchDomain {
+  id                  String            @id @default(uuid())
+  tenantId            String            @map("tenant_id")
+  userId              String            @map("user_id")
+  domain              String
+  label               String?
+  status              WatchDomainStatus @default(ACTIVE)
+  tldStrategy         TldStrategy       @default(MIXED) @map("tld_strategy")
+  tldAllowlist        String[]          @default([]) @map("tld_allowlist")
+  tldSuspicious       String[]          @default([]) @map("tld_suspicious")
+  similarityThreshold Float?            @map("similarity_threshold")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  candidates CandidateDomain[]
+  alerts     Alert[]
+
+  @@unique([tenantId, domain])
+  @@index([tenantId, status])
+  @@map("watch_domains")
+}
+
+model WatchlistEntry {
+  id                     String    @id @default(uuid())
+  projectId              String    @map("project_id")
+  officialDomainRaw      String    @map("official_domain_raw")
+  officialDomainNormalized String  @map("official_domain_normalized")
+  label                  String?
+  active                 Boolean   @default(true)
+  intervalHours          Int       @default(24) @map("interval_hours")
+  candidateCount         Int       @default(100) @map("candidate_count")
+  similarityThreshold    Float     @default(0.8) @map("similarity_threshold")
+  tldStrategy            TldStrategy @default(SAME_TLD_ONLY) @map("tld_strategy")
+  tldAllowlist           String[]  @default([]) @map("tld_allowlist")
+  tldSuspicious          String[]  @default([]) @map("tld_suspicious")
+  lastScanAt             DateTime? @map("last_scan_at")
+  lastScanStatus         String?   @map("last_scan_status")
+  nextRunAt              DateTime? @map("next_run_at")
+  suspiciousCount        Int       @default(0) @map("suspicious_count")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  candidates   CandidateDomain[]
+  domainScans  DomainScanLog[]
+
+  @@unique([projectId, officialDomainNormalized])
+  @@index([projectId, active])
+  @@index([nextRunAt])
+  @@map("watchlist_entries")
+}
+
+model CandidateDomain {
+  id               String           @id @default(uuid())
+  watchDomainId    String?          @map("watch_domain_id")
+  watchlistEntryId String?          @map("watchlist_entry_id")
+  domain           String
+  tld              String
+  source           CandidateSource
+  similarityScore  Float            @map("similarity_score")
+  isActive         Boolean          @default(true) @map("is_active")
+  rdapRegistered   Boolean?         @map("rdap_registered")
+  rdapCheckedAt    DateTime?        @map("rdap_checked_at")
+  rdapStatus       String[]         @default([]) @map("rdap_status")
+  rdapRaw          Json?            @map("rdap_raw")
+  riskLevel        RiskLevel        @default(LOW) @map("risk_level")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  watchDomain    WatchDomain?   @relation(fields: [watchDomainId], references: [id], onDelete: Cascade)
+  watchlistEntry WatchlistEntry? @relation(fields: [watchlistEntryId], references: [id], onDelete: Cascade)
+  alerts         Alert[]
+
+  @@unique([watchDomainId, domain])
+  @@unique([watchlistEntryId, domain])
+  @@index([watchDomainId])
+  @@index([watchlistEntryId])
+  @@index([domain])
+  @@index([riskLevel])
+  @@map("candidate_domains")
+}
+
+model DomainScanLog {
+  id               String    @id @default(uuid())
+  watchlistEntryId String    @map("watchlist_entry_id")
+  scannedAt        DateTime  @default(now()) @map("scanned_at")
+  status           String?   @map("status")
+  summary          Json?     @map("summary")
+
+  watchlistEntry WatchlistEntry @relation(fields: [watchlistEntryId], references: [id], onDelete: Cascade)
+
+  @@index([watchlistEntryId, scannedAt])
+  @@map("domain_scan_logs")
+}
+
+model Alert {
+  id                String        @id @default(uuid())
+  tenantId          String        @map("tenant_id")
+  userId            String        @map("user_id")
+  watchDomainId     String        @map("watch_domain_id")
+  candidateDomainId String        @map("candidate_domain_id")
+  type              AlertType
+  severity          AlertSeverity
+  message           String
+  isRead            Boolean       @default(false) @map("is_read")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  watchDomain     WatchDomain     @relation(fields: [watchDomainId], references: [id], onDelete: Cascade)
+  candidateDomain CandidateDomain @relation(fields: [candidateDomainId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, isRead])
+  @@index([watchDomainId, createdAt])
+  @@index([candidateDomainId])
+  @@map("alerts")
 }

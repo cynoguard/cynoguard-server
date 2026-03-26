@@ -2,28 +2,22 @@
  * WebSocket plugin — Socket.IO server integrated with Fastify.
  * Provides real-time notifications for domain monitoring alerts.
  */
-
-import type { FastifyInstance } from "fastify";
 import { Server as SocketIOServer } from "socket.io";
 import { verifyFirebaseToken } from "../services/firebase.service.js";
 import { prisma } from "./prisma.js";
-
-let io: SocketIOServer | null = null;
-
+let io = null;
 /**
  * Get the Socket.IO server instance.
  * Used by services to emit events.
  */
-export function getSocketIo(): SocketIOServer | null {
+export function getSocketIo() {
     return io;
 }
-
 /**
  * Initialize Socket.IO and attach to Fastify's underlying HTTP server.
  */
-export function setupWebSocket(fastify: FastifyInstance): void {
+export function setupWebSocket(fastify) {
     const server = fastify.server; // Node.js http.Server
-
     io = new SocketIOServer(server, {
         cors: {
             origin: [
@@ -35,57 +29,46 @@ export function setupWebSocket(fastify: FastifyInstance): void {
             credentials: true,
         },
     });
-
     // Set up the /ws namespace
     const wsNamespace = io.of("/ws");
-
     wsNamespace.use(async (socket, next) => {
         try {
-            const token = socket.handshake.auth?.token as string | undefined;
+            const token = socket.handshake.auth?.token;
             if (!token) {
                 return next(new Error("Authentication token required"));
             }
-
             const decoded = await verifyFirebaseToken(token);
             if (!decoded) {
                 return next(new Error("Invalid authentication token"));
             }
-
             // Look up user + org membership
             const user = await prisma.user.findUnique({
                 where: { firebaseId: decoded.uid },
             });
-
             if (!user) {
                 return next(new Error("User not found"));
             }
-
             const membership = await prisma.organizationMember.findFirst({
                 where: { userId: user.id },
             });
-
             // Attach user data to socket
-            (socket as any).userId = user.id;
-            (socket as any).tenantId = membership?.organizationId ?? null;
-            (socket as any).email = user.email;
-
+            socket.userId = user.id;
+            socket.tenantId = membership?.organizationId ?? null;
+            socket.email = user.email;
             next();
-        } catch (error) {
+        }
+        catch (error) {
             next(new Error("Authentication failed"));
         }
     });
-
     wsNamespace.on("connection", (socket) => {
-        const userId = (socket as any).userId as string;
+        const userId = socket.userId;
         console.log(`[WebSocket] User connected: ${userId}`);
-
         // Join user-specific room
         socket.join(`user:${userId}`);
-
         socket.on("disconnect", () => {
             console.log(`[WebSocket] User disconnected: ${userId}`);
         });
     });
-
     console.log("[WebSocket] Socket.IO server initialized on /ws namespace");
 }

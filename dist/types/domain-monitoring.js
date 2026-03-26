@@ -1,0 +1,2 @@
+// Domain Monitoring types
+export {};
