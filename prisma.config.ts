@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 
 // Manually load .env — Prisma skips this when prisma.config.ts is present
-config(); 
+config({ override: true }); 
 
 import { defineConfig } from "prisma/config";
 
@@ -17,10 +17,31 @@ function ensureSslMode(connectionString: string): string {
   }
 }
 
-const databaseUrl =
-  process.env.DATABASE_PROD_URL ??
-  process.env.DATABASE_URL ??
-  "postgresql://postgres:postgres@localhost:5432/postgres?schema=public";
+function getEnv(name: string): string | null {
+  const value = process.env[name];
+  if (!value) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+const databaseProdUrl = getEnv("DATABASE_PROD_URL");
+const databaseUrl = databaseProdUrl ?? getEnv("DATABASE_URL");
+
+if (!databaseUrl) {
+  throw new Error(
+    "Missing database URL. Set DATABASE_PROD_URL (recommended for AWS RDS) or DATABASE_URL."
+  );
+}
+
+if (!databaseProdUrl) {
+  // Guardrail: avoid silently using localhost when production URL is not configured.
+  const parsed = new URL(databaseUrl);
+  if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+    throw new Error(
+      "DATABASE_PROD_URL is not set and DATABASE_URL points to localhost. Set DATABASE_PROD_URL to your AWS RDS connection string."
+    );
+  }
+}
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
