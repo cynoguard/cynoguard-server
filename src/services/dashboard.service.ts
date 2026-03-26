@@ -90,7 +90,6 @@ export const updateApiKeyInfo = async (id:string,status:string)=>{
     },
     data:{
       status:status,
-      connectionVerified:status === "connected"?true:false,
     },
   });
 

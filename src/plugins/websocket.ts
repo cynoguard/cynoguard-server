@@ -60,7 +60,7 @@ export function setupWebSocket(fastify: FastifyInstance): void {
                 return next(new Error("User not found"));
             }
 
-            const membership = await prisma.organizationMember.findUnique({
+            const membership = await prisma.organizationMember.findFirst({
                 where: { userId: user.id },
             });
 

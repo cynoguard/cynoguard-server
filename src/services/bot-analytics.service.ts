@@ -517,7 +517,7 @@ export const addWhitelistEntry = async (
   entry:  WhitelistEntry
 ) => {
   return await prisma.$transaction(async (tx) => {
-    const results = [];
+    const results: any[] = [];
 
     for (const keyId of keyIds) {
       const existing = await tx.apiKeyRule.findUnique({

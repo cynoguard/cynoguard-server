@@ -5,8 +5,8 @@
  */
 
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { verifyFirebaseToken } from "../services/firebase.service.js";
 import { prisma } from "../plugins/prisma.js";
+import { verifyFirebaseToken } from "../services/firebase.service.js";
 
 export const authPreHandler = async (
     request: FastifyRequest,
@@ -40,7 +40,7 @@ export const authPreHandler = async (
     }
 
     // Look up organization membership to get tenantId
-    const membership = await prisma.organizationMember.findUnique({
+    const membership = await prisma.organizationMember.findFirst({
         where: { userId: user.id },
     });
 
