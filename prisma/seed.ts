@@ -62,10 +62,10 @@ async function main() {
     where: { name_organizationId: { name: "Test Project", organizationId: org.id } },
     update: {},
     create: {
+      primaryDomain:"cynoguard.com",
       id: "test-project-001",
       organizationId: org.id,
       name: "Test Project",
-      primary_domain: "cynoguard.io",
       environment: "development",
       status: "active",
       createdAt: new Date(),
