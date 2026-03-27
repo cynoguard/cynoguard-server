@@ -30,9 +30,9 @@ jobs:
             echo "❌ package-lock.json missing"
             exit 1
           fi
-          npm ci --ignore-scripts        # ← skips postinstall "prisma generate"
+          NODE_ENV=development npm ci --ignore-scripts   # ← force devDependencies install
 
-      # Use local binary — avoids npx downloading prisma globally
+            # Use local binary — avoids npx downloading prisma globally
       - name: Prisma generate
         run: ./node_modules/.bin/prisma generate
 
