@@ -18,7 +18,7 @@ export const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Seeding test data...\n");
 
-  // 1. User
+  // 1.User
   const user = await prisma.user.upsert({
     where: { id: "test-user-001" },
     update: {},
