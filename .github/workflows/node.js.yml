@@ -20,7 +20,6 @@ jobs:
           node-version: 24.x
           cache: 'npm'
 
-      # Must be FIRST — prisma generate needs DATABASE_PROD_URL
       - name: Setup environment variables
         run: echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
 
@@ -30,9 +29,19 @@ jobs:
             echo "❌ package-lock.json missing"
             exit 1
           fi
-          NODE_ENV=development npm ci --ignore-scripts   # ← force devDependencies install
+          NODE_ENV=development npm ci --ignore-scripts --include=dev
 
-            # Use local binary — avoids npx downloading prisma globally
+      - name: Debug node_modules
+        run: |
+          echo "=== package.json prisma entries ==="
+          cat package.json | grep -A2 -B2 prisma
+          echo "=== node_modules/.bin prisma binaries ==="
+          ls node_modules/.bin/ | grep prisma || echo "NO PRISMA BINARY FOUND"
+          echo "=== node_modules/@prisma ==="
+          ls node_modules/@prisma || echo "NO @prisma folder"
+          echo "=== node_modules/prisma ==="
+          ls node_modules/prisma || echo "NO prisma folder"
+
       - name: Prisma generate
         run: ./node_modules/.bin/prisma generate
 
