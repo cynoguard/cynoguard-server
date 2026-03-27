@@ -8,10 +8,11 @@
     "start": "node dist/server.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "dev": "tsx watch src/server.ts",
-    "postinstall": "",
+    "postinstall": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "generate": "prisma generate"
   },
+  
   "keywords": [],
   "author": "",
   "license": "ISC",

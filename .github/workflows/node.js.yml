@@ -30,11 +30,11 @@ jobs:
             echo "❌ package-lock.json missing"
             exit 1
           fi
-          npm ci
+          npm ci --ignore-scripts        # ← skips postinstall "prisma generate"
 
-      # Generate AFTER install but BEFORE build
+      # Use local binary — avoids npx downloading prisma globally
       - name: Prisma generate
-        run: npx prisma generate
+        run: ./node_modules/.bin/prisma generate
 
       - name: Build
         run: npm run build --if-present
@@ -50,7 +50,7 @@ jobs:
           fi
 
       - name: Run DB migrations
-        run: npx prisma migrate deploy
+        run: ./node_modules/.bin/prisma migrate deploy
 
       - name: Start or Reload PM2
         run: |
