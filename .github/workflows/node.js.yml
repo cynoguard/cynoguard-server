@@ -21,31 +21,13 @@ jobs:
           cache: 'npm'
 
       - name: Setup environment variables
-        run: echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
-
-      - name: Debug before install
         run: |
-          echo "=== Node version ==="
-          node -v
-          npm -v
-          echo "=== package.json scripts ==="
-          cat package.json | python3 -m json.tool | grep -A5 '"scripts"'
-          echo "=== package.json dependencies with prisma ==="
-          grep -i prisma package.json || echo "NO PRISMA IN package.json"
-          echo "=== Does package-lock.json exist? ==="
-          ls -la package-lock.json || echo "NO PACKAGE-LOCK"
+          echo "${{ secrets.CYNOGUARD_SECRETS }}" > .env
+          # Overwrite FIREBASE_PRIVATE_KEY with the dedicated secret to avoid escaping issues
+          echo "FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}" >> .env
 
       - name: Install dependencies
         run: NODE_ENV=development npm ci --ignore-scripts --include=dev
-
-      - name: Debug after install
-        run: |
-          echo "=== node_modules exists? ==="
-          ls -la | grep node_modules || echo "NO node_modules DIR"
-          echo "=== prisma in node_modules/.bin ==="
-          ls node_modules/.bin/ | grep -i prisma || echo "NO PRISMA BINARY"
-          echo "=== node_modules/prisma exists? ==="
-          ls node_modules/prisma/package.json || echo "NO node_modules/prisma"
 
       - name: Prisma generate
         run: ./node_modules/.bin/prisma generate
