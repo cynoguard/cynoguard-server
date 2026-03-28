@@ -28,6 +28,7 @@
     "@sinclair/typebox": "^0.34.47",
     "buffer": "^6.0.3",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.3.1",
     "fastify": "^5.7.1",
     "firebase": "^12.8.0",
     "firebase-admin": "^10.3.0",
