@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { Pool } from "pg";
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_PROD_URL!,
+  connectionString: "postgresql://postgres:cynoguard2026proddatabase1@cynoguard-prod-rds.cp0q4gcs4hbj.eu-north-1.rds.amazonaws.com:5432/cynoguard-prod-rds?sslmode=require",
   ssl: {
     rejectUnauthorized: true,
     ca: readFileSync("/home/ubuntu/rds-ca.pem").toString(),
