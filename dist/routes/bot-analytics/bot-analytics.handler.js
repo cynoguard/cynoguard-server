@@ -1,5 +1,5 @@
 import { addWhitelistEntry, getApiKeyMetrics, getApiKeyRule, getDetectionLogs, getGeoDistribution, getOverviewKpis, getProjectApiKeysWithRules, removeWhitelistEntry, upsertApiKeyRules } from "../../services/bot-analytics.service.js";
-// GET /api/v1/bot-management/overview?projectId=xxx&range=7d
+// GET /api/v1/bot-management/overview?projectId=xxx&range.7d
 export const getBotOverview = async (request, reply) => {
     const { projectId, range = "7d" } = request.query;
     try {
@@ -25,7 +25,7 @@ export const getBotDetections = async (request, reply) => {
         return reply.code(500).send({ status: "Internal Server Error", error });
     }
 };
-// GET /api/v1/bot-management/rules?projectId=xxx
+// GET /api/v1/bot-management/rules?projectId.xxx
 export const getProjectRules = async (request, reply) => {
     const { projectId } = request.query;
     try {
@@ -38,7 +38,7 @@ export const getProjectRules = async (request, reply) => {
         return reply.code(500).send({ status: "Internal Server Error", error });
     }
 };
-// GET /api/v1/bot-management/rules/:keyId
+// GET /api/v1/bot-management/rules/:keyId.
 export const getSingleKeyRule = async (request, reply) => {
     const { keyId } = request.params;
     try {

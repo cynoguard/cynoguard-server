@@ -27,7 +27,7 @@ export const verifyHuman = async (
           matchedEntry: cyno.matchedEntry?.name ?? "unknown",
           iat_ms:       Date.now(),
         },
-        process.env.JWT_SECRET as string,
+        "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09",
         { expiresIn: `${persistence}h` }
       );
 
@@ -152,7 +152,7 @@ export const verifyHuman = async (
           answer: valueArr[randomPosition - 1],
           iat_ms: challengeIssuedAt,
         },
-        process.env.JWT_SECRET as string,
+        "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09",
         { expiresIn: "5m" }
       );
 
@@ -169,7 +169,7 @@ export const verifyHuman = async (
       response.data.cookies = {
         token: jwt.sign(
           { assessment: "passed", iat_ms: Date.now() },
-          process.env.JWT_SECRET as string,
+          "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09",
           { expiresIn: `${persistence}h` }
         ),
       };
@@ -214,7 +214,7 @@ export const verifyBotChallenge = async (request: FastifyRequest, reply: Fastify
       });
     }
 
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET as string) as {
+    const decodedToken = jwt.verify(token, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09") as {
       answer: string;
       cid: string;
       did: string;
@@ -234,7 +234,7 @@ export const verifyBotChallenge = async (request: FastifyRequest, reply: Fastify
           challenge: {
             retake_token: jwt.sign(
               { did: decodedToken.did },
-              process.env.JWT_SECRET as string,
+              "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09",
               { expiresIn: "5m" }
             ),
           },
@@ -249,7 +249,7 @@ export const verifyBotChallenge = async (request: FastifyRequest, reply: Fastify
       data: {
         challenge_verified: true,
         cookies: {
-          token: jwt.sign({ assessment: "passed" }, process.env.JWT_SECRET as string, { expiresIn: "3d" }),
+          token: jwt.sign({ assessment: "passed" }, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09", { expiresIn: "3d" }),
         },
       },
     });
@@ -290,7 +290,7 @@ export const reTakeBotChallenge = async (request: FastifyRequest, reply: Fastify
       });
     }
 
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET as string) as { did: string };
+    const decodedToken = jwt.verify(token, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09") as { did: string };
 
     const challengeData = await getBotChallenge();
     const valueArr = challengeData?.value.split(" ") || [];
@@ -304,7 +304,7 @@ export const reTakeBotChallenge = async (request: FastifyRequest, reply: Fastify
         answer: valueArr[randomPosition - 1],
         iat_ms: issuedAt,
       },
-      process.env.JWT_SECRET as string,
+      "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09",
       { expiresIn: "5m" }
     );
 
