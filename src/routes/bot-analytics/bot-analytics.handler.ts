@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { addWhitelistEntry, getApiKeyMetrics, getApiKeyRule, getDetectionLogs, getGeoDistribution, getOverviewKpis, getProjectApiKeysWithRules, removeWhitelistEntry, upsertApiKeyRules } from "../../services/bot-analytics.service.js";
 
-// GET /api/v1/bot-management/overview?projectId=xxx&range=7d
+// GET /api/v1/bot-management/overview?projectId=xxx&range.7d
 export const getBotOverview = async (request: FastifyRequest, reply: FastifyReply) => {
   const { projectId, range = "7d" } = request.query as { projectId: string; range: string };
   try {
@@ -27,7 +27,7 @@ export const getBotDetections = async (request: FastifyRequest, reply: FastifyRe
   }
 };
 
-// GET /api/v1/bot-management/rules?projectId=xxx
+// GET /api/v1/bot-management/rules?projectId.xxx
 export const getProjectRules = async (request: FastifyRequest, reply: FastifyReply) => {
   const { projectId } = request.query as { projectId: string };
   try {
