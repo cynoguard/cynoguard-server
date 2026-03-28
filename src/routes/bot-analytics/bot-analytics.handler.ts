@@ -39,7 +39,7 @@ export const getProjectRules = async (request: FastifyRequest, reply: FastifyRep
   }
 };
 
-// GET /api/v1/bot-management/rules/:keyId
+// GET /api/v1/bot-management/rules/:keyId.
 export const getSingleKeyRule = async (request: FastifyRequest, reply: FastifyReply) => {
   const { keyId } = request.params as { keyId: string };
   try {
