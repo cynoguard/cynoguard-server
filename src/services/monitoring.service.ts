@@ -1,5 +1,6 @@
 /**
  * Monitoring service — runs the RDAP check cycle and creates alerts.
+ * Fixed: now uses WatchlistEntry (new model) instead of the old WatchDomain model.
  * Called by the cron job every 6 hours.
  */
 
@@ -7,69 +8,80 @@ import { prisma } from "../plugins/prisma.js";
 import { getTld } from "../lib/domain-normalize.js";
 import { evaluateSuspiciousness } from "../lib/tld-strategy.js";
 import { rdapLookup } from "./rdap.service.js";
-import { createAlert } from "./alert.service.js";
 
 const DEFAULT_SIMILARITY_THRESHOLD = 0.85;
 
-function getThreshold(watchDomainThreshold: number | null): number {
-    if (watchDomainThreshold !== null && watchDomainThreshold !== undefined) {
-        return watchDomainThreshold;
+function getThreshold(threshold: number | null): number {
+    if (threshold !== null && threshold !== undefined) {
+        return threshold;
     }
-    const envThreshold = parseFloat(
-        process.env.SIMILARITY_THRESHOLD || "0.85"
-    );
+    const envThreshold = parseFloat(process.env.SIMILARITY_THRESHOLD || "0.85");
     return isNaN(envThreshold) ? DEFAULT_SIMILARITY_THRESHOLD : envThreshold;
 }
 
 /**
  * Run a full monitoring cycle:
- * 1. Load all ACTIVE watch domains
- * 2. For each, load active candidates
+ * 1. Load all ACTIVE watchlist entries (due for scanning)
+ * 2. For each, load active candidates linked via watchlistEntryId
  * 3. RDAP check each candidate
  * 4. Evaluate suspiciousness
- * 5. Create alerts for suspicious + registered candidates
+ * 5. Update suspiciousCount + write a DomainScanLog summary
  */
 export async function runMonitoringCycle(): Promise<void> {
     console.log("[Monitoring] Starting monitoring cycle...");
 
-    const watchDomains = await prisma.watchDomain.findMany({
-        where: { status: "ACTIVE" },
+    // ✅ FIX: Query WatchlistEntry instead of the old WatchDomain model
+    const entries = await prisma.watchlistEntry.findMany({
+        where: {
+            active: true,
+            nextRunAt: { lte: new Date() },
+        },
+        include: { project: true },
     });
 
-    console.log(`[Monitoring] Found ${watchDomains.length} active watch domains`);
+    console.log(`[Monitoring] Found ${entries.length} watchlist entries due for scanning`);
 
-    for (const wd of watchDomains) {
+    for (const entry of entries) {
         try {
-            await processWatchDomain(wd);
+            await processWatchlistEntry(entry);
         } catch (error) {
             console.error(
-                `[Monitoring] Error processing watch domain ${wd.domain}:`,
+                `[Monitoring] Error processing watchlist entry ${entry.officialDomainRaw}:`,
                 error
             );
+            // Mark as failed so it gets retried next cycle
+            await prisma.watchlistEntry.update({
+                where: { id: entry.id },
+                data: { lastScanStatus: "failed", lastScanAt: new Date() },
+            });
         }
     }
 
     console.log("[Monitoring] Monitoring cycle complete.");
 }
 
-async function processWatchDomain(wd: any): Promise<void> {
+async function processWatchlistEntry(entry: any): Promise<void> {
+    // ✅ FIX: Query candidates by watchlistEntryId instead of watchDomainId
     const candidates = await prisma.candidateDomain.findMany({
-        where: { watchDomainId: wd.id, isActive: true },
+        where: { watchlistEntryId: entry.id, isActive: true },
     });
 
     console.log(
-        `[Monitoring] Processing ${candidates.length} candidates for ${wd.domain}`
+        `[Monitoring] Processing ${candidates.length} candidates for ${entry.officialDomainRaw}`
     );
 
-    const threshold = getThreshold(wd.similarityThreshold);
-    const watchTld = getTld(wd.domain);
+    const threshold = getThreshold(entry.similarityThreshold);
+    const watchTld = getTld(entry.officialDomainRaw);
+
+    let suspiciousCount = 0;
+    const scanSummary: any[] = [];
 
     for (const candidate of candidates) {
         try {
             // 1. RDAP lookup
             const rdapResult = await rdapLookup(candidate.domain);
 
-            // 2. Persist RDAP result
+            // 2. Persist RDAP result on candidate
             await prisma.candidateDomain.update({
                 where: { id: candidate.id },
                 data: {
@@ -80,36 +92,37 @@ async function processWatchDomain(wd: any): Promise<void> {
                 },
             });
 
-            // 3. Evaluate suspiciousness
             if (rdapResult.registered !== true) continue;
 
+            // 3. Evaluate suspiciousness
             const result = evaluateSuspiciousness(
                 candidate.tld,
                 watchTld,
-                wd.tldStrategy,
-                wd.tldAllowlist,
-                wd.tldSuspicious,
+                entry.tldStrategy,
+                entry.tldAllowlist,
+                entry.tldSuspicious,
                 candidate.similarityScore,
                 threshold
             );
 
             if (!result.isSuspicious) continue;
 
-            // 4. Create alert (with dedupe)
-            const message = `Suspicious similar domain registered: ${candidate.domain} (similarity ${candidate.similarityScore.toFixed(2)}, tld ${candidate.tld})`;
+            suspiciousCount++;
 
-            await createAlert({
-                tenantId: wd.tenantId,
-                userId: wd.userId,
-                watchDomainId: wd.id,
-                candidateDomainId: candidate.id,
-                candidateDomain: candidate.domain,
-                watchDomain: wd.domain,
-                severity: result.severity as any,
+            // 4. Log suspicious domain to scan summary
+            scanSummary.push({
+                domain: candidate.domain,
                 similarityScore: candidate.similarityScore,
                 tld: candidate.tld,
-                message,
+                severity: result.severity,
             });
+
+            // 5. Update candidate risk level
+            await prisma.candidateDomain.update({
+                where: { id: candidate.id },
+                data: { riskLevel: result.severity as any },
+            });
+
         } catch (error) {
             console.error(
                 `[Monitoring] Error checking candidate ${candidate.domain}:`,
@@ -117,4 +130,34 @@ async function processWatchDomain(wd: any): Promise<void> {
             );
         }
     }
+
+    const nextRunAt = new Date(Date.now() + entry.intervalHours * 60 * 60 * 1000);
+
+    // ✅ Update WatchlistEntry scan metadata
+    await prisma.watchlistEntry.update({
+        where: { id: entry.id },
+        data: {
+            lastScanAt: new Date(),
+            lastScanStatus: "completed",
+            nextRunAt,
+            suspiciousCount: { increment: suspiciousCount },
+        },
+    });
+
+    // ✅ Write a DomainScanLog entry for audit trail
+    await prisma.domainScanLog.create({
+        data: {
+            watchlistEntryId: entry.id,
+            status: "completed",
+            summary: {
+                totalCandidates: candidates.length,
+                suspiciousFound: suspiciousCount,
+                suspicious: scanSummary,
+            },
+        },
+    });
+
+    console.log(
+        `[Monitoring] Done: ${entry.officialDomainRaw} — ${suspiciousCount} suspicious found`
+    );
 }
