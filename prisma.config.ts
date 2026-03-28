@@ -9,6 +9,6 @@ export default defineConfig({
     path: "prisma/migrations",
 },
   datasource: {
-    url: "postgresql://postgres:cynoguard2026proddatabase1@cynoguard-prod-rds.cp0q4gcs4hbj.eu-north-1.rds.amazonaws.com:5432/cynoguard-prod-rds?sslmode=require",
+    url: "postgresql://postgres:cynoguard2026proddatabase1@cynoguard-prod-rds.cp0q4gcs4hbj.eu-north-1.rds.amazonaws.com:5432/cynoguard-prod-rds?sslmode=require&sslcert=/home/ubuntu/rds-ca.pem",
   },
 });
