@@ -18,11 +18,11 @@ import test from "./test/index.js";
 
 
 // Domain Monitoring imports
-import watchDomainRoutes from './routes/v1/watch-domains/index.js';
-import candidateRoutes from './routes/v1/candidates/index.js';
-import alertRoutes from './routes/v1/alerts/index.js';
-import { setupWebSocket } from './plugins/websocket.js';
 import { setupCron } from './plugins/cron.js';
+import { setupWebSocket } from './plugins/websocket.js';
+import alertRoutes from './routes/v1/alerts/index.js';
+import candidateRoutes from './routes/v1/candidates/index.js';
+import watchDomainRoutes from './routes/v1/watch-domains/index.js';
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -34,7 +34,7 @@ const fastify: FastifyInstance = Fastify({
   logger: true
 });
 
-const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'];
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003',"https://console.cynoguard.com","https://cynoguard.com","https://cdn.cynoguard.com"];
 
 await fastify.register(cors, {
   origin: allowedOrigins, // Restricts access to specified origins
