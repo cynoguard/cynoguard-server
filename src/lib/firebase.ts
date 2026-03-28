@@ -1,13 +1,43 @@
+import "dotenv/config";
 import admin from "firebase-admin";
 
 const APP_NAME = "cynoguard-admin";
 
+const readRequiredEnv = (name: string): string => {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`[Firebase] Missing required env variable: ${name}`);
+  }
+  return value;
+};
+
+const normalizePrivateKey = (): string => {
+  const rawKey = process.env.FIREBASE_PRIVATE_KEY;
+  const base64Key = process.env.FIREBASE_PRIVATE_KEY_BASE64;
+
+  if (rawKey) {
+    return rawKey.replace(/\\n/g, "\n");
+  }
+
+  if (base64Key) {
+    const decoded = Buffer.from(base64Key, "base64").toString("utf8").trim();
+    if (!decoded.includes("BEGIN PRIVATE KEY")) {
+      throw new Error("[Firebase] FIREBASE_PRIVATE_KEY_BASE64 is set but invalid");
+    }
+    return decoded;
+  }
+
+  throw new Error(
+    "[Firebase] Missing private key. Set FIREBASE_PRIVATE_KEY (with \\n) or FIREBASE_PRIVATE_KEY_BASE64",
+  );
+};
+
 const firebaseAdmin = admin.apps.find(a => a?.name === APP_NAME)
   ?? admin.initializeApp({
       credential: admin.credential.cert({
-        projectId:   process.env.FIREBASE_PROJECT_ID!,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-        privateKey:  process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, "\n"),
+        projectId: readRequiredEnv("FIREBASE_PROJECT_ID"),
+        clientEmail: readRequiredEnv("FIREBASE_CLIENT_EMAIL"),
+        privateKey: normalizePrivateKey(),
       }),
      }, APP_NAME);
 
@@ -22,7 +52,7 @@ console.log("App name:     ", firebaseAdmin.name);
 console.log("Project ID:   ", firebaseAdmin.options.projectId ?? cred?.projectId ?? "❌ undefined");
 console.log("Client email: ", cred?.clientEmail ?? cred?.certificate?.clientEmail ?? "❌ undefined");
 console.log("Private key:  ", cred?.privateKey
-  ? `✅ present (${cred.privateKey.substring(0, 40)}...)`
+  ? "✅ present"
   : cred?.certificate?.privateKey
   ? `✅ present`
   : "❌ missing"
