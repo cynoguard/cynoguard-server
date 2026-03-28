@@ -1,5 +1,5 @@
+import { PrismaClient } from ".prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import PrismaClient from "@prisma/client";
 import "dotenv/config";
 import { readFileSync } from "node:fs";
 import { Pool } from "pg";
