@@ -18,7 +18,7 @@ export const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Seeding test data...\n");
 
-  // 1. User
+  // 1.User
   const user = await prisma.user.upsert({
     where: { id: "test-user-001" },
     update: {},
@@ -62,10 +62,10 @@ async function main() {
     where: { name_organizationId: { name: "Test Project", organizationId: org.id } },
     update: {},
     create: {
+      primaryDomain:"cynoguard.com",
       id: "test-project-001",
       organizationId: org.id,
       name: "Test Project",
-      primary_domain: "cynoguard.io",
       environment: "development",
       status: "active",
       createdAt: new Date(),
