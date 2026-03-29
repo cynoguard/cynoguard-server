@@ -5,6 +5,47 @@ import path from "path";
 import { prisma } from "../plugins/prisma.js";
 
 const test = async (fastify: FastifyInstance, options: FastifyPluginOptions) => {
+  const normalizeValues = (raw: unknown): string[] => {
+    if (!Array.isArray(raw)) return [];
+    const values = raw
+      .filter((item) => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+    return Array.from(new Set(values));
+  };
+
+  fastify.post("/api/dev/challenge-bank/seed", async (request, reply) => {
+    try {
+      const values = normalizeValues(request.body as unknown);
+      if (values.length === 0) {
+        return reply.code(400).send({
+          status: "error",
+          message: "Request body must be a non-empty string array",
+        });
+      }
+
+      const created = await prisma.challengeBank.createMany({
+        data: values.map((value) => ({ value })),
+        skipDuplicates: true,
+      });
+
+      return reply.code(200).send({
+        status: "success",
+        message: "ChallengeBank seeded from request body",
+        data: {
+          sourceCount: values.length,
+          insertedCount: created.count,
+          skippedCount: values.length - created.count,
+        },
+      });
+    } catch (error: any) {
+      return reply.code(500).send({
+        status: "error",
+        message: error?.message || "Failed to seed ChallengeBank",
+      });
+    }
+  });
   
   fastify.post("/api/dev/challenge-bank/seed-file", async (request, reply) => {
     try {

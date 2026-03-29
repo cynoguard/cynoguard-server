@@ -1,3 +1,6 @@
+import { computeSimilarityScore } from "../lib/similarity.js";
+import { buildTldList, generateAlgoCandidates } from "./algo-generator.service.js";
+import { generateGeminiCandidates } from "./gemini.service.js";
 // ─── Watchlist ────────────────────────────────────────────────────────────────
 export async function listWatchlist(prisma, projectId) {
     return prisma.watchlistEntry.findMany({
@@ -25,7 +28,7 @@ export async function getWatchlistEntry(prisma, watchlistId, projectId) {
 }
 export async function createWatchlistEntry(prisma, projectId, data) {
     const normalized = data.domain.toLowerCase().trim();
-    return prisma.watchlistEntry.create({
+    const entry = await prisma.watchlistEntry.create({
         data: {
             projectId,
             officialDomainRaw: data.domain,
@@ -44,6 +47,59 @@ export async function createWatchlistEntry(prisma, projectId, data) {
             label: true, active: true, intervalHours: true,
             candidateCount: true, tldStrategy: true, createdAt: true,
         },
+    });
+    try {
+        await generateInitialCandidates(prisma, entry.id, {
+            domain: entry.officialDomainNormalized,
+            tldStrategy: data.tldStrategy ?? "SAME_TLD_ONLY",
+            tldAllowlist: data.tldAllowlist ?? [],
+            tldSuspicious: data.tldSuspicious ?? [],
+            candidateCount: data.candidateCount ?? 100,
+        });
+    }
+    catch (error) {
+        console.error("[DomainMonitoring] Failed to generate initial candidates:", error);
+    }
+    return entry;
+}
+async function generateInitialCandidates(prisma, watchlistEntryId, options) {
+    const maxCount = Math.min(Math.max(options.candidateCount, 1), 100);
+    const tlds = buildTldList(options.domain, options.tldAllowlist, options.tldSuspicious, options.tldStrategy);
+    const algoDomains = generateAlgoCandidates(options.domain, tlds, 50);
+    const seen = new Set();
+    const all = [];
+    for (const domain of algoDomains) {
+        if (seen.has(domain))
+            continue;
+        seen.add(domain);
+        all.push({ domain, source: "ALGO" });
+        if (all.length >= maxCount)
+            break;
+    }
+    const remaining = maxCount - all.length;
+    if (remaining > 0) {
+        const geminiDomains = await generateGeminiCandidates(options.domain, remaining, seen);
+        for (const domain of geminiDomains) {
+            if (seen.has(domain))
+                continue;
+            seen.add(domain);
+            all.push({ domain, source: "GEMINI" });
+            if (all.length >= maxCount)
+                break;
+        }
+    }
+    if (all.length === 0)
+        return;
+    await prisma.candidateDomain.createMany({
+        data: all.map((item) => ({
+            watchlistEntryId,
+            domain: item.domain,
+            tld: item.domain.split(".").pop() ?? "",
+            source: item.source,
+            similarityScore: computeSimilarityScore(options.domain, item.domain),
+            isActive: true,
+        })),
+        skipDuplicates: true,
     });
 }
 export async function updateWatchlistEntry(prisma, watchlistId, projectId, data) {
@@ -117,4 +173,49 @@ export async function listScanLogs(prisma, watchlistId, projectId) {
         orderBy: { scannedAt: "desc" },
         take: 50,
     });
+}
+export async function listFindings(prisma, watchlistId, projectId, options) {
+    const entry = await prisma.watchlistEntry.findFirst({
+        where: { id: watchlistId, projectId },
+        select: { id: true },
+    });
+    if (!entry)
+        return null;
+    const page = Math.max(1, options.page);
+    const pageSize = Math.min(100, Math.max(1, options.pageSize));
+    const skip = (page - 1) * pageSize;
+    const orderBy = options.sort === "similarity_asc" ? [{ similarityScore: "asc" }] :
+        options.sort === "created_asc" ? [{ createdAt: "asc" }] :
+            options.sort === "created_desc" ? [{ createdAt: "desc" }] :
+                [{ similarityScore: "desc" }, { createdAt: "desc" }];
+    const [total, items] = await Promise.all([
+        prisma.candidateDomain.count({ where: { watchlistEntryId: watchlistId } }),
+        prisma.candidateDomain.findMany({
+            where: { watchlistEntryId: watchlistId },
+            orderBy,
+            skip,
+            take: pageSize,
+            select: {
+                id: true,
+                domain: true,
+                source: true,
+                similarityScore: true,
+                tld: true,
+                isActive: true,
+                rdapRegistered: true,
+                rdapCheckedAt: true,
+                riskLevel: true,
+                createdAt: true,
+            },
+        }),
+    ]);
+    return {
+        items,
+        pagination: {
+            page,
+            pageSize,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / pageSize)),
+        },
+    };
 }

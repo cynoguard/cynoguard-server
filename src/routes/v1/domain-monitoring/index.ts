@@ -4,6 +4,7 @@ import {
     createWatchlist,
     deleteWatchlistEntryHandler,
     getCandidates,
+    getFindings,
     getScanLogs,
     getWatchlist,
     getWatchlistEntryHandler,
@@ -13,6 +14,7 @@ import {
 import {
     AddCandidatesBody,
     CreateWatchlistBody,
+    FindingsQuery,
     ProjectParams,
     UpdateWatchlistBody,
     WatchlistParams,
@@ -64,6 +66,12 @@ export default async function domainMonitoringRoutes(fastify: FastifyInstance) {
     "/api/v1/orgs/:orgId/projects/:projectId/watchlist/:watchlistId/candidates",
     { schema: { tags: ["Domain Monitoring"], params: WatchlistParams } },
     (req, rep) => getCandidates(req as any, rep)
+  );
+
+  fastify.get(
+    "/api/v1/orgs/:orgId/projects/:projectId/watchlist/:watchlistId/findings",
+    { schema: { tags: ["Domain Monitoring"], params: WatchlistParams, querystring: FindingsQuery } },
+    (req, rep) => getFindings(req as any, rep)
   );
 
   fastify.post(

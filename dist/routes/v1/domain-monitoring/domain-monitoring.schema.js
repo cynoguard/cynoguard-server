@@ -8,6 +8,16 @@ export const WatchlistParams = Type.Object({
     projectId: Type.String(),
     watchlistId: Type.String(),
 });
+export const FindingsQuery = Type.Object({
+    sort: Type.Optional(Type.Union([
+        Type.Literal("similarity_desc"),
+        Type.Literal("similarity_asc"),
+        Type.Literal("created_desc"),
+        Type.Literal("created_asc"),
+    ])),
+    page: Type.Optional(Type.Number({ minimum: 1, default: 1 })),
+    pageSize: Type.Optional(Type.Number({ minimum: 1, maximum: 100, default: 10 })),
+});
 export const CreateWatchlistBody = Type.Object({
     domain: Type.String({ minLength: 1 }),
     label: Type.Optional(Type.String()),

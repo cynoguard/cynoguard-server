@@ -1,10 +1,11 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { prisma } from "../../../plugins/prisma.js";
-import { addManualCandidates, createWatchlistEntry, deleteWatchlistEntry, getWatchlistEntry, listCandidates, listScanLogs, listWatchlist, triggerScan, updateWatchlistEntry } from "../../../services/domain-monitoring.service.js";
+import { addManualCandidates, createWatchlistEntry, deleteWatchlistEntry, getWatchlistEntry, listCandidates, listFindings, listScanLogs, listWatchlist, triggerScan, updateWatchlistEntry } from "../../../services/domain-monitoring.service.js";
 import type {
     TAddCandidatesBody,
     TCreateWatchlistBody,
+    TFindingsQuery,
     TProjectParams,
     TUpdateWatchlistBody,
     TWatchlistParams,
@@ -117,6 +118,23 @@ export async function getCandidates(
   const items = await listCandidates(prisma, watchlistId, projectId);
   if (!items) return reply.status(404).send({ error: "Watchlist entry not found" });
   return reply.send({ items });
+}
+
+export async function getFindings(
+  request: FastifyRequest<{ Params: TWatchlistParams; Querystring: TFindingsQuery }>,
+  reply:   FastifyReply
+) {
+  const { orgId, projectId, watchlistId } = request.params;
+  if (!(await assertProjectMember(orgId, projectId)))
+    return reply.status(403).send({ error: "Forbidden" });
+
+  const page = request.query.page ?? 1;
+  const pageSize = request.query.pageSize ?? 10;
+  const sort = request.query.sort ?? "similarity_desc";
+
+  const result = await listFindings(prisma, watchlistId, projectId, { page, pageSize, sort });
+  if (!result) return reply.status(404).send({ error: "Watchlist entry not found" });
+  return reply.send(result);
 }
 
 export async function addCandidatesHandler(

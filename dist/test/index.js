@@ -1,3 +1,6 @@
+import { existsSync } from "fs"; // Add this import
+import { readFile } from "fs/promises";
+import path from "path";
 import { prisma } from "../plugins/prisma.js";
 const test = async (fastify, options) => {
     const normalizeValues = (raw) => {
@@ -9,29 +12,9 @@ const test = async (fastify, options) => {
             .filter((item) => item.length > 0);
         return Array.from(new Set(values));
     };
-    // fastify.get("/test/db",async(request,reply)=>{
-    //     const org = await prisma.organization.create({
-    //     data: {
-    //       name: "CynoGuard Security",
-    //       industry: "Cybersecurity",
-    //       discoverSource: "Direct",
-    //     },
-    //   });
-    //   // 2. Create the Project
-    //   // We manually set the ID to match your controller's "test_project_cn_2026"
-    //   const project = await prisma.project.create({
-    //     data: {
-    //       name: "Main Production WebApp",
-    //       status: "active",
-    //       createdAt: new Date(),
-    //       organizationId: org.id, // Connects to the org we just made
-    //     },
-    //   });
-    // })
     fastify.post("/api/dev/challenge-bank/seed", async (request, reply) => {
         try {
-            const body = request.body;
-            const values = normalizeValues(body);
+            const values = normalizeValues(request.body);
             if (values.length === 0) {
                 return reply.code(400).send({
                     status: "error",
@@ -44,7 +27,7 @@ const test = async (fastify, options) => {
             });
             return reply.code(200).send({
                 status: "success",
-                message: "ChallengeBank seeded",
+                message: "ChallengeBank seeded from request body",
                 data: {
                     sourceCount: values.length,
                     insertedCount: created.count,
@@ -59,28 +42,36 @@ const test = async (fastify, options) => {
             });
         }
     });
-    // Backward-compatible route retained for current workflows.
-    fastify.post("/api/auth/load/prod", async (request, reply) => {
+    fastify.post("/api/dev/challenge-bank/seed-file", async (request, reply) => {
         try {
-            const body = request.body;
-            const values = normalizeValues(body);
-            if (values.length === 0) {
-                return reply.code(400).send({
-                    status: "error",
-                    message: "Request body must be a non-empty string array",
-                });
+            // 1. Try Root (process.cwd is usually the project root where you run 'npm start')
+            let filePath = path.resolve(process.cwd(), "challenge.json");
+            // 2. Fallback: Check if file exists, if not, try one level up from the current directory
+            if (!existsSync(filePath)) {
+                const altPath = path.resolve(process.cwd(), "..", "challenge.json");
+                if (existsSync(altPath)) {
+                    filePath = altPath;
+                }
+                else {
+                    throw new Error(`challenge.json not found at ${filePath} or ${altPath}`);
+                }
             }
+            // 3. Read and Parse
+            const fileContent = await readFile(filePath, "utf-8");
+            const values = JSON.parse(fileContent);
+            // 4. (Optional) Wipe old data first so the DB matches the JSON exactly
+            // await prisma.challengeBank.deleteMany({}); 
+            // 5. Batch insert
             const created = await prisma.challengeBank.createMany({
                 data: values.map((value) => ({ value })),
                 skipDuplicates: true,
             });
             return reply.code(200).send({
                 status: "success",
-                message: "ChallengeBank seeded",
+                message: "ChallengeBank seeded from file",
                 data: {
-                    sourceCount: values.length,
+                    pathUsed: filePath,
                     insertedCount: created.count,
-                    skippedCount: values.length - created.count,
                 },
             });
         }
@@ -91,9 +82,10 @@ const test = async (fastify, options) => {
             });
         }
     });
+    // Existing GET route
     fastify.get("/api/auth/load/prod", async (request, reply) => {
         const data = await prisma.challengeBank.findMany();
-        return reply.code(200).send({ data: data });
+        return reply.code(200).send({ data });
     });
 };
 export default test;
