@@ -23,7 +23,7 @@ import alertRoutes from './routes/v1/alerts/index.js';
 import candidateRoutes from './routes/v1/candidates/index.js';
 import watchDomainRoutes from './routes/v1/watch-domains/index.js';
 
-// ✅ FIX: Import the social monitoring scheduler (was never imported/called before)
+
 import { startMonitoringScheduler } from './scheduler/monitoring.scheduler.js';
 
 declare module "fastify" {
