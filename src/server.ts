@@ -36,15 +36,7 @@ const fastify: FastifyInstance = Fastify({
   logger: true
 });
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
-  "https://console.cynoguard.com",
-  "https://cynoguard.com",
-  "https://cdn.cynoguard.com"
-];
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003',"https://console.cynoguard.com","https://cynoguard.com","https://cdn.cynoguard.com","http://127.0.0.1:5500"];
 
 await fastify.register(cors, {
   origin: allowedOrigins,
