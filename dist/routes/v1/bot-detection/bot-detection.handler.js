@@ -2,6 +2,18 @@ import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import { getBotChallenge, updateStats } from "../../../services/bot-detection.service.js";
 import { verifyJWT } from "../../../services/global.service.js";
+const toErrorMessage = (error) => {
+    if (error instanceof Error && error.message)
+        return error.message;
+    if (typeof error === "string")
+        return error;
+    try {
+        return JSON.stringify(error);
+    }
+    catch {
+        return "Unknown error";
+    }
+};
 export const verifyHuman = async (request, reply) => {
     const signals = request.body;
     const { cyno } = request;
@@ -172,7 +184,7 @@ export const verifyHuman = async (request, reply) => {
         return reply.code(500).send({
             status: "Internal Server Error",
             message: "",
-            error,
+            error: toErrorMessage(error),
         });
     }
 };
@@ -216,7 +228,11 @@ export const verifyBotChallenge = async (request, reply) => {
         });
     }
     catch (error) {
-        return reply.code(500).send({ status: "Internal Server Error", message: "", error });
+        return reply.code(500).send({
+            status: "Internal Server Error",
+            message: "",
+            error: toErrorMessage(error),
+        });
     }
 };
 export const verifyBotSessionToken = async (request, reply) => {
@@ -232,7 +248,11 @@ export const verifyBotSessionToken = async (request, reply) => {
         return reply.code(200).send({ status: "session-verified", message: "Session verified" });
     }
     catch (error) {
-        return reply.code(500).send({ status: "Internal Server Error", message: "", error });
+        return reply.code(500).send({
+            status: "Internal Server Error",
+            message: "",
+            error: toErrorMessage(error),
+        });
     }
 };
 export const reTakeBotChallenge = async (request, reply) => {
@@ -274,7 +294,11 @@ export const reTakeBotChallenge = async (request, reply) => {
         });
     }
     catch (error) {
-        return reply.code(500).send({ status: "Internal Server Error", message: "", error });
+        return reply.code(500).send({
+            status: "Internal Server Error",
+            message: "",
+            error: toErrorMessage(error),
+        });
     }
 };
 import { getOrgOverview, getProjectOverview } from "../../../services/dashboard.service.js";

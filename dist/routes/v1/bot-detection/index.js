@@ -10,7 +10,14 @@ const botDetectionRoutes = async (fastify, options) => {
     fastify.addHook("onRequest", apiKeyValidation);
     // Bot detection v1 api route
     fastify.post("/api/v1/bot-detection/verify", { schema: verifyHumanSchema, onResponse: async (request, reply) => {
-            await updateSessionData(request.auditData);
+            try {
+                if (request.auditData) {
+                    await updateSessionData(request.auditData);
+                }
+            }
+            catch (error) {
+                request.log.error(error, "bot-detection: failed to persist detection audit data");
+            }
         }, preHandler: ruleMiddleware }, async (request, reply) => {
         return await verifyHuman(request, reply);
     });
@@ -19,7 +26,16 @@ const botDetectionRoutes = async (fastify, options) => {
         return await verifyBotChallenge(request, reply);
     });
     //retake challenge
-    fastify.get("/api/v1/retake-challenge", { onResponse: async (request, reply) => { await updateDetectionData(request.auditData); } }, async (request, reply) => {
+    fastify.get("/api/v1/retake-challenge", { onResponse: async (request, reply) => {
+            try {
+                if (request.auditData) {
+                    await updateDetectionData(request.auditData);
+                }
+            }
+            catch (error) {
+                request.log.error(error, "bot-detection: failed to persist retake audit data");
+            }
+        } }, async (request, reply) => {
         return await reTakeBotChallenge(request, reply);
     });
     // verify client-side cookie session token

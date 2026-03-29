@@ -12,7 +12,14 @@ const botDetectionRoutes = async (fastify:FastifyInstance,options:FastifyPluginO
   fastify.addHook("onRequest",apiKeyValidation);
   
     // Bot detection v1 api route
-    fastify.post<{Body:verifyHumanBodyType}>("/api/v1/bot-detection/verify",{schema:verifyHumanSchema,onResponse:async(request,reply)=>{await updateSessionData(request.auditData);
+    fastify.post<{Body:verifyHumanBodyType}>("/api/v1/bot-detection/verify",{schema:verifyHumanSchema,onResponse:async(request,reply)=>{
+      try {
+        if (request.auditData) {
+          await updateSessionData(request.auditData);
+        }
+      } catch (error) {
+        request.log.error(error, "bot-detection: failed to persist detection audit data");
+      }
 }, preHandler:ruleMiddleware },async (request:FastifyRequest<{Body:verifyHumanBodyType}>,reply:FastifyReply) => {
         return await verifyHuman(request,reply);
     });
@@ -24,7 +31,15 @@ const botDetectionRoutes = async (fastify:FastifyInstance,options:FastifyPluginO
     });
 
     //retake challenge
-    fastify.get("/api/v1/retake-challenge",{onResponse:async(request,reply)=>{await updateDetectionData(request.auditData)}},async (request:FastifyRequest,reply:FastifyReply) => {  
+    fastify.get("/api/v1/retake-challenge",{onResponse:async(request,reply)=>{
+      try {
+        if (request.auditData) {
+          await updateDetectionData(request.auditData);
+        }
+      } catch (error) {
+        request.log.error(error, "bot-detection: failed to persist retake audit data");
+      }
+    }},async (request:FastifyRequest,reply:FastifyReply) => {  
       return await reTakeBotChallenge(request,reply);
     });
 

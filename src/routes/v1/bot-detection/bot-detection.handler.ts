@@ -4,6 +4,17 @@ import { v4 as uuidv4 } from "uuid";
 import { getBotChallenge, updateStats } from "../../../services/bot-detection.service.js";
 import { verifyJWT } from "../../../services/global.service.js";
 import type { verifyChallengeBodyType, verifyHumanBodyType, verifyHumanResponseType } from "../../../types/bot-detection.js";
+
+const toErrorMessage = (error: unknown): string => {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown error";
+  }
+};
+
 export const verifyHuman = async (
   request: FastifyRequest<{ Body: verifyHumanBodyType }>,
   reply: FastifyReply
@@ -196,7 +207,7 @@ export const verifyHuman = async (
     return reply.code(500).send({
       status:  "Internal Server Error",
       message: "",
-      error,
+      error: toErrorMessage(error),
     });
   }
 };
@@ -254,7 +265,11 @@ export const verifyBotChallenge = async (request: FastifyRequest, reply: Fastify
       },
     });
   } catch (error) {
-    return reply.code(500).send({ status: "Internal Server Error", message: "", error });
+    return reply.code(500).send({
+      status: "Internal Server Error",
+      message: "",
+      error: toErrorMessage(error),
+    });
   }
 };
 
@@ -274,7 +289,11 @@ export const verifyBotSessionToken = async (request: FastifyRequest, reply: Fast
 
     return reply.code(200).send({ status: "session-verified", message: "Session verified" });
   } catch (error) {
-    return reply.code(500).send({ status: "Internal Server Error", message: "", error });
+    return reply.code(500).send({
+      status: "Internal Server Error",
+      message: "",
+      error: toErrorMessage(error),
+    });
   }
 };
 
@@ -326,7 +345,11 @@ export const reTakeBotChallenge = async (request: FastifyRequest, reply: Fastify
       },
     });
   } catch (error) {
-    return reply.code(500).send({ status: "Internal Server Error", message: "", error });
+    return reply.code(500).send({
+      status: "Internal Server Error",
+      message: "",
+      error: toErrorMessage(error),
+    });
   }
 };
 
