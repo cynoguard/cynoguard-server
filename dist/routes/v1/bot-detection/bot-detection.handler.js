@@ -18,7 +18,7 @@ export const verifyHuman = async (request, reply) => {
                 whitelisted: true,
                 matchedEntry: cyno.matchedEntry?.name ?? "unknown",
                 iat_ms: Date.now(),
-            }, process.env.JWT_SECRET, { expiresIn: `${persistence}h` });
+            }, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09", { expiresIn: `${persistence}h` });
             // Still audit the whitelisted visit for dashboard visibility
             request.auditData = {
                 id: detectionId,
@@ -137,7 +137,7 @@ export const verifyHuman = async (request, reply) => {
                 cid: challengeData?.id,
                 answer: valueArr[randomPosition - 1],
                 iat_ms: challengeIssuedAt,
-            }, process.env.JWT_SECRET, { expiresIn: "5m" });
+            }, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09", { expiresIn: "5m" });
             challengeDataId = challengeData?.id || null;
             response.data.challenge = {
                 context: challengeData?.value || "",
@@ -149,7 +149,7 @@ export const verifyHuman = async (request, reply) => {
             // Allow — issue verified session cookie
             // Persistence comes from rule (hours → seconds for jwt expiresIn)
             response.data.cookies = {
-                token: jwt.sign({ assessment: "passed", iat_ms: Date.now() }, process.env.JWT_SECRET, { expiresIn: `${persistence}h` }),
+                token: jwt.sign({ assessment: "passed", iat_ms: Date.now() }, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09", { expiresIn: `${persistence}h` }),
             };
         }
         // ── AUDIT ─────────────────────────────────────────────
@@ -187,7 +187,7 @@ export const verifyBotChallenge = async (request, reply) => {
                 error: "Token is missing or malformed",
             });
         }
-        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+        const decodedToken = jwt.verify(token, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09");
         // Calculate timeToSolve from when challenge was issued (embedded in token)
         const timeToSolve = decodedToken.iat_ms ? Date.now() - decodedToken.iat_ms : 0;
         if (decodedToken.answer !== answer) {
@@ -198,7 +198,7 @@ export const verifyBotChallenge = async (request, reply) => {
                 error: "Challenge answer is incorrect",
                 data: {
                     challenge: {
-                        retake_token: jwt.sign({ did: decodedToken.did }, process.env.JWT_SECRET, { expiresIn: "5m" }),
+                        retake_token: jwt.sign({ did: decodedToken.did }, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09", { expiresIn: "5m" }),
                     },
                 },
             });
@@ -210,7 +210,7 @@ export const verifyBotChallenge = async (request, reply) => {
             data: {
                 challenge_verified: true,
                 cookies: {
-                    token: jwt.sign({ assessment: "passed" }, process.env.JWT_SECRET, { expiresIn: "3d" }),
+                    token: jwt.sign({ assessment: "passed" }, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09", { expiresIn: "3d" }),
                 },
             },
         });
@@ -245,7 +245,7 @@ export const reTakeBotChallenge = async (request, reply) => {
                 error: "Token is missing or malformed",
             });
         }
-        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+        const decodedToken = jwt.verify(token, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09");
         const challengeData = await getBotChallenge();
         const valueArr = challengeData?.value.split(" ") || [];
         const randomPosition = Math.floor(Math.random() * valueArr.length) + 1;
@@ -255,7 +255,7 @@ export const reTakeBotChallenge = async (request, reply) => {
             cid: challengeData?.id,
             answer: valueArr[randomPosition - 1],
             iat_ms: issuedAt,
-        }, process.env.JWT_SECRET, { expiresIn: "5m" });
+        }, "2cc08b7a5f4090a29c309dd9ee072cceaaef89e9e68f87ca64a79401083213bc0245d277d4785d02c4d21e6239fe7619a9485536641d83325f1676f413946d09", { expiresIn: "5m" });
         // auditData used by onResponse hook to write ChallengeAttempt (issued, not yet answered)
         request.auditData = {
             detectionId: decodedToken.did,

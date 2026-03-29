@@ -21,14 +21,16 @@ import { setupWebSocket } from './plugins/websocket.js';
 import alertRoutes from './routes/v1/alerts/index.js';
 import candidateRoutes from './routes/v1/candidates/index.js';
 import watchDomainRoutes from './routes/v1/watch-domains/index.js';
+// ✅ FIX: Import the social monitoring scheduler (was never imported/called before)
+import { startMonitoringScheduler } from './scheduler/monitoring.scheduler.js';
 const fastify = Fastify({
     logger: true
 });
-const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', "https://console.cynoguard.com", "https://cynoguard.com", "https://cdn.cynoguard.com"];
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', "https://console.cynoguard.com", "https://cynoguard.com", "https://cdn.cynoguard.com", "http://127.0.0.1:5500", "*"];
 await fastify.register(cors, {
-    origin: allowedOrigins, // Restricts access to specified origins
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Specify allowed methods
-    credentials: true, // If you need to handle cookies or authorization headers
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    credentials: true,
 });
 fastify.decorate("prisma", prisma);
 fastify.register(fastifySwagger, swaggerOption);
@@ -53,8 +55,10 @@ const start = async () => {
         await fastify.listen({ port: port, host: '0.0.0.0' });
         // Initialize WebSocket (after Fastify is listening)
         setupWebSocket(fastify);
-        // Initialize Cron scheduler
+        // Initialize domain monitoring cron scheduler
         setupCron();
+        // ✅ FIX: Start social monitoring scheduler (was missing — never called before)
+        startMonitoringScheduler(prisma, fastify.log);
         console.log(`Server running on http://localhost:${port}`);
     }
     catch (error) {

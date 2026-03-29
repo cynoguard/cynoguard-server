@@ -9,10 +9,7 @@ import { scanAllProjects } from "../services/social-monitoring.service.js";
  */
 export function startMonitoringScheduler(prisma, logger) {
     // Validate that the X token is configured before starting
-    if (!process.env.X_BEARER_TOKEN) {
-        logger.warn("[SocialMonitoring] X_BEARER_TOKEN not set — scheduler will start but scans will fail. " +
-            "Add X_BEARER_TOKEN to your .env file.");
-    }
+    // X_BEARER_TOKEN hardcoded
     cron.schedule("0 */6 * * *", async () => {
         logger.info("[SocialMonitoring] Cron fired — scanning all projects");
         await scanAllProjects(prisma, logger);

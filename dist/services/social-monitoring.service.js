@@ -11,9 +11,7 @@ let _xClient = null;
 function getXClient() {
     if (_xClient)
         return _xClient;
-    const token = process.env.X_BEARER_TOKEN;
-    if (!token)
-        throw new Error("X_BEARER_TOKEN is not set. Add it to your .env file.");
+    const token = process.env.X_BEARER_TOKEN || "AAAAAAAAAAAAAAAAAAAAALJf7wEAAAAAM95zUkz26US1aCZgPi8g6TjqxCY%3D1CLjNFr81W7DhajXDzAnIbQDsj4FiKK05PiP4o3sHHCwKEQmG9";
     _xClient = new TwitterApi(token).readOnly;
     return _xClient;
 }
