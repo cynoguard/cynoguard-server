@@ -2,27 +2,9 @@
 // All route handler logic for the Social Monitoring module.
 // Routes are registered in social-monitoring.routes.ts (index).
 import { scanProject } from "../../../services/social-monitoring.service.js";
-// ─── Auth Guard ───────────────────────────────────────────────────────────────
-async function assertMember(fastify, projectId, userId) {
-    const project = await fastify.prisma.project.findUnique({
-        where: { id: projectId },
-        select: { organizationId: true },
-    });
-    if (!project)
-        return false;
-    const member = await fastify.prisma.organizationMember.findFirst({
-        where: { organizationId: project.organizationId, userId },
-    });
-    return !!member;
-}
-function userId(request) {
-    return request.userId;
-}
 // ─── Keywords ─────────────────────────────────────────────────────────────────
 export async function listKeywords(fastify, request, reply) {
     const { projectId } = request.params;
-    if (!(await assertMember(fastify, projectId, userId(request))))
-        return reply.status(403).send({ error: "Forbidden" });
     const [keywords, mentionGroups] = await Promise.all([
         fastify.prisma.monitoringKeyword.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
         fastify.prisma.brandMention.groupBy({
@@ -38,8 +20,6 @@ export async function listKeywords(fastify, request, reply) {
 }
 export async function addKeyword(fastify, request, reply) {
     const { projectId } = request.params;
-    if (!(await assertMember(fastify, projectId, userId(request))))
-        return reply.status(403).send({ error: "Forbidden" });
     const count = await fastify.prisma.monitoringKeyword.count({ where: { projectId } });
     if (count >= 50)
         return reply.status(422).send({ error: "Maximum 50 keywords per project" });
@@ -60,8 +40,6 @@ export async function addKeyword(fastify, request, reply) {
 }
 export async function toggleKeyword(fastify, request, reply) {
     const { projectId, keywordId } = request.params;
-    if (!(await assertMember(fastify, projectId, userId(request))))
-        return reply.status(403).send({ error: "Forbidden" });
     const kw = await fastify.prisma.monitoringKeyword.findFirst({ where: { id: keywordId, projectId } });
     if (!kw)
         return reply.status(404).send({ error: "Keyword not found" });
@@ -76,8 +54,6 @@ export async function toggleKeyword(fastify, request, reply) {
 }
 export async function deleteKeyword(fastify, request, reply) {
     const { projectId, keywordId } = request.params;
-    if (!(await assertMember(fastify, projectId, userId(request))))
-        return reply.status(403).send({ error: "Forbidden" });
     const kw = await fastify.prisma.monitoringKeyword.findFirst({ where: { id: keywordId, projectId } });
     if (!kw)
         return reply.status(404).send({ error: "Keyword not found" });
@@ -87,8 +63,6 @@ export async function deleteKeyword(fastify, request, reply) {
 // ─── Mentions ─────────────────────────────────────────────────────────────────
 export async function listMentions(fastify, request, reply) {
     const { projectId } = request.params;
-    if (!(await assertMember(fastify, projectId, userId(request))))
-        return reply.status(403).send({ error: "Forbidden" });
     const page = Math.max(parseInt(request.query.page ?? "1", 10), 1);
     const limit = Math.min(Math.max(parseInt(request.query.limit ?? "20", 10), 1), 100);
     const { status, riskLevel, sentiment } = request.query;
@@ -106,8 +80,6 @@ export async function listMentions(fastify, request, reply) {
 }
 export async function getMentionStats(fastify, request, reply) {
     const { projectId } = request.params;
-    if (!(await assertMember(fastify, projectId, userId(request))))
-        return reply.status(403).send({ error: "Forbidden" });
     const now = Date.now();
     const last24h = new Date(now - 24 * 60 * 60 * 1000);
     const last30d = new Date(now - 30 * 24 * 60 * 60 * 1000);
@@ -140,8 +112,6 @@ export async function getMentionStats(fastify, request, reply) {
 }
 export async function getMention(fastify, request, reply) {
     const { projectId, mentionId } = request.params;
-    if (!(await assertMember(fastify, projectId, userId(request))))
-        return reply.status(403).send({ error: "Forbidden" });
     const mention = await fastify.prisma.brandMention.findFirst({ where: { id: mentionId, projectId } });
     if (!mention)
         return reply.status(404).send({ error: "Mention not found" });
@@ -154,8 +124,6 @@ export async function getMention(fastify, request, reply) {
 }
 export async function updateMention(fastify, request, reply) {
     const { projectId, mentionId } = request.params;
-    if (!(await assertMember(fastify, projectId, userId(request))))
-        return reply.status(403).send({ error: "Forbidden" });
     const mention = await fastify.prisma.brandMention.findFirst({ where: { id: mentionId, projectId } });
     if (!mention)
         return reply.status(404).send({ error: "Mention not found" });
@@ -167,8 +135,6 @@ export async function updateMention(fastify, request, reply) {
 }
 export async function triggerScan(fastify, request, reply) {
     const { projectId } = request.params;
-    if (!(await assertMember(fastify, projectId, userId(request))))
-        return reply.status(403).send({ error: "Forbidden" });
     const result = await scanProject(fastify.prisma, projectId, request.log);
     return reply.status(202).send({ message: "Scan complete", ...result });
 }
